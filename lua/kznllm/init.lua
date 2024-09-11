@@ -82,8 +82,11 @@ end
 --- Returns an appropriate position to stream output tokens and
 ---
 ---@param opts table optional values including debug mode
----@return string visual_selection returns the full selection
-function M.get_visual_selection(opts)
+---@return integer srow the starting row of the selection
+---@return integer scol the starting column of the selection
+---@return integer erow the ending row of the selection
+---@return integer ecol the ending column of the selection
+function M.get_visual_selection_pos()
   local mode = api.nvim_get_mode().mode
 
   -- get visual selection and current cursor position (1-indexed)
@@ -100,7 +103,18 @@ function M.get_visual_selection(opts)
     scol, ecol = ecol, scol
   end
 
+  return srow, scol, erow, ecol
+end
+
+---Retrieves the visual selection in the current buffer based on the user's selection.
+---
+---@param opts table optional values including debug mode
+---@return string visual_selection returns the full selection
+function M.get_visual_selection(opts)
+  local srow, scol, erow, ecol = M.get_visual_selection_pos()
+  
   -- in visual block and visual line mode, we expect first column of srow and last column of erow
+  local mode = api.nvim_get_mode().mode
   if mode == 'V' or mode == '\22' or mode == 'n' then
     scol, ecol = 0, -1
   else

@@ -233,6 +233,17 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
       M.PROMPT_ARGS_STATE.current_buffer_filetype = buf_filetype
       M.PROMPT_ARGS_STATE.current_buffer_path = buf_path
       M.PROMPT_ARGS_STATE.current_buffer_context = buf_context
+
+      if not visual_selection then
+        local srow, scol, erow, ecol = kznllm.get_visual_selection_pos()
+        local cursor_pos = "<CURSOR_POS>"
+        local buf_lines = vim.split(buf_context, "\n")
+        local new_line = buf_lines[erow+1]:sub(1, ecol) .. "<CURSOR_POS>" .. buf_lines[erow+1]:sub(ecol + 1) 
+        buf_lines[erow + 1] = new_line
+        buf_context = table.concat(buf_lines, "\n")
+
+        M.PROMPT_ARGS_STATE.current_buffer_context = buf_context
+      end
     end
     M.PROMPT_ARGS_STATE.prefill = opts.prefill
 
