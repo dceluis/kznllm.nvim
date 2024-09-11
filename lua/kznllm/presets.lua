@@ -171,6 +171,17 @@ local function anthropic_debug_fn(data, ns_id, extmark_id, opts)
   end
 end
 
+-- Function to read the file contents
+local function read_file_contents(filepath)
+  local file = io.open(filepath, "rb") -- Use binary mode to handle all file types
+  if not file then
+    error("Could not open file: " .. filepath)
+  end
+  local content = file:read("*all")
+  file:close()
+  return content
+end
+
 --- Working implementation of "inline" fill mode
 --- Invokes an LLM via a supported API spec defined by
 ---
@@ -196,8 +207,23 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
     M.PROMPT_ARGS_STATE.visual_selection = visual_selection
 
     local context_dir = kznllm.find_context_directory(opts)
+    M.PROMPT_ARGS_STATE.context_files = {}
+
     if context_dir then
-      M.PROMPT_ARGS_STATE.context_files = kznllm.get_project_files(context_dir, opts)
+      local file_paths = kznllm.get_project_files(context_dir, opts)
+      for _, file_path in ipairs(file_paths) do
+        local file_content = read_file_contents(file_path)
+        table.insert(M.PROMPT_ARGS_STATE.context_files, { path = file_path, content = file_content })
+      end
+    end
+
+    for mention in input:gmatch('@[%w./]+') do
+      local mention_path = vim.fn.getcwd() .. '/' .. mention:sub(2)
+
+      if vim.fn.filereadable(mention_path) == 1 then
+        local mention_content = read_file_contents(mention_path)
+        table.insert(M.PROMPT_ARGS_STATE.context_files, { path = mention_path, content = mention_content })
+      end
     end
 
     -- don't update current context if scratch buffer is open
