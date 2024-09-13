@@ -23,45 +23,42 @@
 </documents>
 
 {% endif %}
-{% if replace %}
-<query>{{user_query}}</query>
 
-You will be given a code snippet with comments. Your task is to fix any errors in the code and implement any unfinished functionality indicated in the comments. Only output valid code fragment in the provided language.
-
-Here is the code snippet:
-
+{% if visual_selection %}
 <code_snippet>
 ```{{current_buffer_filetype}}
 {{visual_selection}}
 ```
 </code_snippet>
 
+<instruction>
+You have been given a code snippet.
+
+Your task is to follow the user query to fix any errors in the code snippet and implement any missing functionality.
+{% else %}
+<instruction>
+Your task is to follow the user query from the position marked with <CURSOR_POS> to fix any errors and implement any missing functionality.
+{% endif %}
+
 Follow these steps to complete the task:
 
-1. Carefully read through the entire code snippet, including all comments.
+1. Carefully read through the entire contents, including all comments.
+2. Identify and fix any syntax errors, logical errors, or unimplemented functionality mentioned in the query.
+3. Ensure that your changes maintain the original intent of the code while improving its functionality and correctness.
+4. If there are multiple ways to implement a feature or fix an error, choose the most efficient and clear approach.
+5. Do not add any new features or functionality beyond what is explicitly mentioned in the query.
+6. Maintain the original code style and formatting as much as possible, unless it directly contributes to the errors.
+7. If you make any significant changes or implementations, add brief comments on a separate line explaining your modifications.
+8. Only talk in comments, and only if absolutely necessary. Make your comments valid language comments.
 
-2. Identify any syntax errors, logical errors, or unimplemented functionality mentioned in the comments.
-
-3. Fix all errors you've identified. This may include:
-   - Correcting syntax mistakes
-   - Addressing logical errors
-   - Implementing missing functionality as described in the comments
-
-4. Ensure that your changes maintain the original intent of the code while improving its functionality and correctness.
-
-5. If there are multiple ways to implement a feature or fix an error, choose the most efficient and clear approach.
-
-6. Do not add any new features or functionality beyond what is explicitly mentioned in the code or comments.
-
-7. Maintain the original code style and formatting as much as possible, unless it directly contributes to the errors.
-
-8. Keep any comments that were used to make changes.
-
-9. If you make any significant changes or implementations, add brief comments on a separate line explaining your modifications.
-
-Output your corrected and implemented code. Ensure that the code fragment you output is valid, and ready to run in the language of the original snippet.
-
-Remember, only output valid code without any backticks. Do not include any explanations, notes, or anything other than the corrected code itself.
+Output your corrected and implemented code.
+{% if visual_selection %}
+Ensure that the code fragment you output is valid, and ready to replace the code snippet in the same place.
 {% else %}
-{{user_query}}
+Ensure that the code fragment you output is valid, and ready to be placed at <CURSOR_POS> and run correctly in the original context.
 {% endif %}
+
+[IMPORTANT] Remember to only output valid changes, this means no backticks around code changes.
+</instruction>
+
+<query>{{user_query}}</query>
