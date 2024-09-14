@@ -472,12 +472,12 @@ local presets = {
 }
 
 function M.load_selected_preset()
-  local selected_preset_idx = vim.g.kznllm_selected_preset_idx or 1
+  local selected_preset_idx = vim.g.KZNLLM_SELECTED_PRESET_IDX or 1
   return presets[selected_preset_idx]
 end
 
 function M.save_selected_preset(index)
-  vim.g.kznllm_selected_preset_idx = index
+  vim.g.KZNLLM_SELECTED_PRESET_IDX = index
 end
 
 return vim.tbl_extend('keep', M, presets)
