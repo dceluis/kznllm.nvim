@@ -315,8 +315,59 @@ end
 -- { id = 'openai', opts = { api_key_name = 'VLLM_API_KEY', url = 'http://research.local:8000/v1/chat/completions' } }
 local presets = {
   {
+    id = 'deepseek-v2.5',
+    provider = 'openrouter',
+    spec = 'openai',
+    make_data_fn = make_data_for_openai_chat,
+    opts = {
+      model = 'deepseek/deepseek-chat',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 0.7,
+      },
+      debug_fn = openai_debug_fn,
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
+    id = 'chat-model',
+    provider = 'anthropic',
+    spec = 'anthropic',
+    make_data_fn = make_data_for_anthropic_chat,
+    opts = {
+      model = 'claude-3-5-sonnet-20240620',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.7,
+      },
+      debug_fn = openai_debug_fn,
+      base_url = 'https://api.anthropic.com',
+      endpoint = '/v1/messages',
+    },
+  },
+  {
+    id = 'gpt-4o-mini',
+    provider = 'openrouter',
+    spec = 'openai',
+    make_data_fn = make_data_for_openai_chat,
+    opts = {
+      model = 'openai/gpt-4o-mini',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 0.7,
+      },
+      debug_fn = openai_debug_fn,
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
     id = 'chat-model',
     provider = 'groq',
+    spec = 'groq',
     make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'llama-3.1-70b-versatile',
@@ -335,6 +386,7 @@ local presets = {
   {
     id = 'chat-model',
     provider = 'lambda',
+    spec = 'lambda',
     make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'hermes-3-llama-3.1-405b-fp8',
@@ -370,6 +422,7 @@ local presets = {
   {
     id = 'chat-model',
     provider = 'openai',
+    spec = 'openai',
     make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'gpt-4o-mini',
@@ -385,6 +438,7 @@ local presets = {
   {
     id = 'chat-model',
     provider = 'deepseek',
+    spec = 'deepseek',
     make_data_fn = make_data_for_deepseek_chat,
     opts = {
       model = 'deepseek-chat',
@@ -402,6 +456,7 @@ local presets = {
   {
     id = 'completion-model',
     provider = 'vllm',
+    spec = 'vllm',
     make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'meta-llama/Meta-Llama-3.1-8B-Instruct',
