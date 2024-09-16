@@ -332,7 +332,7 @@ local presets = {
     },
   },
   {
-    id = 'chat-model',
+    id = 'claude-3.5-sonnet',
     provider = 'anthropic',
     spec = 'anthropic',
     make_data_fn = make_data_for_anthropic_chat,
