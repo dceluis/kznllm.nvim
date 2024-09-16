@@ -199,7 +199,7 @@ end
 ---@param make_curl_args_fn fun(data: table, opts: table)
 ---@param make_job_fn fun(data: table, writer_fn: fun(content: string), on_exit_fn: fun())
 ---@param opts { debug: string?, debug_fn: fun(data: table, ns_id: integer, extmark_id: integer, opts: table)?, stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean }
-function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
+function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
   api.nvim_clear_autocmds { group = group }
 
   local active_job
@@ -303,7 +303,33 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
         end
       end,
     })
-  end)
+  end, opts.prompt)
+end
+
+function M.invoke_llm(param1, param2, param3, param4)
+  if type(param1) == 'table' and param1.spec then
+    local preset = param1
+    local opts = param2
+
+    local spec = require(('kznllm.specs.%s'):format(preset.spec))
+
+    local default_opts = {}
+    if preset.id then
+      default_opts.prompt = preset.id
+    end
+
+    local merged_opts = vim.tbl_extend('force', default_opts, preset.opts or {})
+    merged_opts = vim.tbl_extend('force', merged_opts, opts or {})
+
+    return M._invoke_llm(
+      preset.make_data_fn,
+      spec.make_curl_args,
+      spec.make_job,
+      merged_opts
+    )
+  else
+    return M._invoke_llm(param1, param2, param3, param4)
+  end
 end
 
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)

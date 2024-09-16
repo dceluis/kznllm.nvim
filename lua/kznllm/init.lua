@@ -72,8 +72,8 @@ end
 --- Gets user input and returns it.
 ---
 --- @param on_submit function callback function to call when user submits input
-function M.get_user_input(on_submit)
-  vim.ui.input({ prompt = 'prompt: ' }, function(input)
+function M.get_user_input(on_submit, prompt)
+  vim.ui.input({ prompt = (prompt or 'prompt') .. ': '  }, function(input)
     if input ~= nil then
       on_submit(input)
     end

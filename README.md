@@ -105,14 +105,8 @@ Set the default `SELECTED_PRESET` based on [presets.lua](https://github.com/chot
 
     local function llm_fill()
       local selected_preset = presets.load_selected_preset()
-      local spec = require(('kznllm.specs.%s'):format(selected_preset.spec))
 
-      presets.invoke_llm(
-        SELECTED_PRESET.make_data_fn,
-        spec.make_curl_args,
-        spec.make_job,
-        vim.tbl_extend('keep', SELECTED_PRESET.opts, {})
-      )
+      presets.invoke_llm(selected_preset)
     end
 
     vim.keymap.set({ 'n', 'v' }, '<leader>k', llm_fill, { desc = 'Send current selection to LLM llm_fill' })
@@ -120,16 +114,8 @@ Set the default `SELECTED_PRESET` based on [presets.lua](https://github.com/chot
     -- optional for debugging purposes
     local function debug()
       local selected_preset = presets.load_selected_preset()
-      local spec = require(('kznllm.specs.%s'):format(selected_preset.spec))
 
-      presets.invoke_llm(
-        SELECTED_PRESET.make_data_fn,
-        spec.make_curl_args,
-        spec.make_job,
-        vim.tbl_extend('keep', SELECTED_PRESET.opts, {
-          debug = true,
-        })
-      )
+      presets.invoke_llm(selected_preset, { debug = true })
     end
 
     vim.keymap.set({ 'n', 'v' }, '<leader>d', debug, { desc = 'Send current selection to LLM debug' })
