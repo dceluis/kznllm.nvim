@@ -55,6 +55,10 @@ for local openai server (e.g. `vllm serve` w/ `--api-key <token>` and `--served-
 
 full config w/ supported presets and a switch mechanism and provider-specific debug functions
 
+Set the default `SELECTED_PRESET` based on [presets.lua](https://github.com/chottolabs/kznllm.nvim/blob/main/lua/kznllm/presets.lua#L279)
+
+(i.e. `1 - groq`, `2 - lambda`, `3 - anthropic`, `4 - openai`, `5 - deepseek`, `6 - vllm (local)` or implement your own)
+
 ```lua
 {
   'chottolabs/kznllm.nvim',
@@ -64,10 +68,6 @@ full config w/ supported presets and a switch mechanism and provider-specific de
   },
   config = function(self)
     local presets = require 'kznllm.presets'
-    local Path = require 'plenary.path'
-
-    -- falls back to `vim.fn.stdpath 'data' .. '/lazy/kznllm/templates'` when the plugin is not locally installed
-    local TEMPLATE_DIRECTORY = Path:new(vim.fn.expand(self.dir) .. '/templates')
 
     -- edit this to change the selected preset (or just fork the repo and add your own)
     local SELECTED_PRESET = presets[1]
@@ -114,9 +114,7 @@ full config w/ supported presets and a switch mechanism and provider-specific de
         SELECTED_PRESET.make_data_fn,
         spec.make_curl_args,
         spec.make_job,
-        vim.tbl_extend('keep', SELECTED_PRESET.opts, {
-          template_directory = TEMPLATE_DIRECTORY,
-        })
+        vim.tbl_extend('keep', SELECTED_PRESET.opts, {})
       )
     end
 
@@ -129,7 +127,6 @@ full config w/ supported presets and a switch mechanism and provider-specific de
         spec.make_curl_args,
         spec.make_job,
         vim.tbl_extend('keep', SELECTED_PRESET.opts, {
-          template_directory = TEMPLATE_DIRECTORY,
           debug = true,
         })
       )

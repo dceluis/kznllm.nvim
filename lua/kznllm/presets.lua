@@ -30,7 +30,7 @@ M.PROMPT_ARGS_STATE = {
 
 M.NS_ID = api.nvim_create_namespace 'kznllm_ns'
 
-local plugin_dir = debug.getinfo(1, "S").source:sub(2):gsub("/lua/.*$", "")
+local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[3]
 local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 
 local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
@@ -76,11 +76,11 @@ local function make_data_for_deepseek_chat(prompt_args, opts)
   local messages = {
     {
       role = 'system',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_system_prompt.xml.jinja', prompt_args),
+      content = kznllm.make_prompt_from_template(template_directory / 'deepseek/fill_mode_system_prompt.xml.jinja', prompt_args),
     },
     {
       role = 'user',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_user_prompt.xml.jinja', prompt_args),
+      content = kznllm.make_prompt_from_template(template_directory / 'deepseek/fill_mode_user_prompt.xml.jinja', prompt_args),
     },
   }
 
@@ -217,11 +217,7 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
     M.PROMPT_ARGS_STATE.context_files = {}
 
     if context_dir then
-      local file_paths = kznllm.get_project_files(context_dir, opts)
-      for _, file_path in ipairs(file_paths) do
-        local file_content = read_file_contents(file_path)
-        table.insert(M.PROMPT_ARGS_STATE.context_files, { path = file_path, content = file_content })
-      end
+      M.PROMPT_ARGS_STATE.context_files = = kznllm.get_project_files(context_dir, opts)
     end
 
     for mention in input:gmatch('@[%w./]+') do

@@ -24,12 +24,14 @@ function M.make_prompt_from_template(prompt_template_path, prompt_args)
     command = 'minijinja-cli',
     args = { '-f', 'json', '--lstrip-blocks', '--trim-blocks', prompt_template_path:absolute(), '-' },
     writer = json_data,
-    on_stderr = function(message, _)
-      error(message, 1)
-    end,
   }
 
   active_job:sync()
+  if active_job.code ~= 0 then
+    local error_msg = table.concat(active_job:stderr_result(), '\n')
+    error('[minijinja-cli] (exit code: ' .. active_job.code .. ')\n' .. error_msg, vim.log.levels.ERROR)
+  end
+
   return table.concat(active_job:result(), '\n')
 end
 
@@ -172,8 +174,12 @@ end
 function M.get_project_files(context_dir, opts)
   local context_files = Scan.scan_dir(context_dir:absolute(), { hidden = false })
   vim.print('using context at: ' .. context_dir:absolute())
+  local context = {}
+  for _, file in ipairs(context_files) do
+    table.insert(context, { path = file, content = Path:new(file):read() })
+  end
 
-  return context_files
+  return context
 end
 
 ---similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
