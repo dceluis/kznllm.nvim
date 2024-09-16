@@ -268,7 +268,7 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
       M.BUFFER_STATE.SCRATCH = kznllm.make_scratch_buffer()
 
       -- Set up key mapping to close the buffer
-      api.nvim_buf_set_keymap(M.BUFFER_STATE.SCRATCH, 'n', '<leader>q', '', {
+      api.nvim_buf_set_keymap(M.BUFFER_STATE.SCRATCH, 'n', 'q', '', {
         noremap = true,
         silent = true,
         callback = function()
