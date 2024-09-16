@@ -217,7 +217,7 @@ function M.invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, opts)
     M.PROMPT_ARGS_STATE.context_files = {}
 
     if context_dir then
-      M.PROMPT_ARGS_STATE.context_files = = kznllm.get_project_files(context_dir, opts)
+      M.PROMPT_ARGS_STATE.context_files = kznllm.get_project_files(context_dir, opts)
     end
 
     for mention in input:gmatch('@[%w./]+') do
