@@ -407,6 +407,7 @@ local presets = {
   {
     id = 'chat-model',
     provider = 'anthropic',
+    spec = 'anthropic',
     make_data_fn = make_data_for_anthropic_chat,
     opts = {
       model = 'claude-3-5-sonnet-20240620',
