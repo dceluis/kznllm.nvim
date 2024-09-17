@@ -8,7 +8,12 @@ ERROR: api key is set to %s and is missing from your environment variables.
 
 Load somewhere safely from config `export %s=<api_key>`]]
 
+local kznllm = require 'kznllm'
+local Path = require 'plenary.path'
 local Job = require 'plenary.job'
+
+local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
+local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.
@@ -64,6 +69,52 @@ local function handle_data(line)
 
   return content
 end
+
+---Example implementation of a `make_data_fn` compatible with `kznllm.invoke_llm` for anthropic spec
+---@param prompt_args any
+---@param opts any
+---@return table
+function M.make_data_fn(prompt_args, opts)
+  local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
+  local data = {
+    system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', prompt_args),
+    messages = {
+      {
+        role = 'user',
+        content = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_user_prompt.xml.jinja', prompt_args),
+      },
+    },
+    model = opts.model,
+    stream = true,
+  }
+  data = vim.tbl_extend('keep', data, opts.data_params)
+
+  return data
+end
+
+function M.debug_fn(data, ns_id, extmark_id, opts)
+  kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
+  kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
+
+  kznllm.write_content_at_extmark('system' .. ':\n\n', ns_id, extmark_id)
+  kznllm.write_content_at_extmark(data.system, ns_id, extmark_id)
+  kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
+  for _, message in ipairs(data.messages) do
+    kznllm.write_content_at_extmark(message.role .. ':\n\n', ns_id, extmark_id)
+    kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
+    kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
+    vim.cmd 'normal! G'
+  end
+end
+
+-- TODO: create a new spec vllm_completions
+-- function M.completions_debug_fn(data, ns_id, extmark_id, opts)
+--   kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
+--   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
+--   kznllm.write_content_at_extmark(data.prompt, ns_id, extmark_id)
+--   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
+--   vim.cmd 'normal! G'
+-- end
 
 ---@param args table
 ---@param writer_fn fun(content: string)
