@@ -92,7 +92,7 @@ function M.make_data_fn(prompt_args, opts)
   return data
 end
 
-function M.debug_fn(data, ns_id, extmark_id, opts)
+function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
 

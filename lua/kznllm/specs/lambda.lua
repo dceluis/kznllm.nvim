@@ -89,7 +89,7 @@ function M.make_data_fn(prompt_args, opts)
     stream = true,
   }
 
-  if M.PROMPT_ARGS_STATE.replace and opts.prefill and opts.stop_param then
+  if prompt_args.replace and opts.prefill and opts.stop_param then
     table.insert(messages, {
       role = 'assistant',
       content = opts.prefill .. prompt_args.current_buffer_filetype .. '\n',
@@ -102,13 +102,13 @@ function M.make_data_fn(prompt_args, opts)
   return data
 end
 
-function M.debug_fn(data, ns_id, extmark_id, opts)
+function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
   for _, message in ipairs(data.messages) do
     kznllm.write_content_at_extmark('\n\n============ ' .. message.role .. ' message: ============ \n\n', ns_id, extmark_id)
     kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
   end
-  if not (M.PROMPT_ARGS_STATE.replace and opts.prefill) then
+  if not (prompt_args.replace and opts.prefill) then
     kznllm.write_content_at_extmark('\n\n============n\n', ns_id, extmark_id)
   end
   vim.cmd 'normal! G'
