@@ -10,13 +10,6 @@ local M = {}
 
 --TODO: PROMPT_ARGS_STATE is just a bad persistence layer at the moment, I don't really want to write files everywhere...
 
--- ORIGIN refers to the buffer where the user invoked the plugin.
--- SCRATCH is a temporary buffer for debugging/chat.
-M.BUFFER_STATE = {
-  SCRATCH = nil,
-  ORIGIN = nil,
-}
-
 M.PROMPT_ARGS_STATE = {
   current_buffer_path = nil,
   current_buffer_context = nil,
