@@ -77,7 +77,7 @@ function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, o
     end
 
     -- don't update current context if scratch buffer is open
-    if vim.b.debug then
+    if not vim.b.debug then
       -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
       local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(buf, opts)
       M.PROMPT_ARGS_STATE.current_buffer_filetype = buf_filetype
