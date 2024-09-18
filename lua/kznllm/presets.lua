@@ -58,7 +58,7 @@ function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, o
 
   local active_job
 
-  M.BUFFER_STATE.ORIGIN = api.nvim_win_get_buf(0)
+  local buf = api.nvim_win_get_buf(0)
 
   kznllm.get_user_input(function(input)
     M.PROMPT_ARGS_STATE.user_query = input
@@ -84,9 +84,9 @@ function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, o
     end
 
     -- don't update current context if scratch buffer is open
-    if not M.BUFFER_STATE.SCRATCH then
+    if vim.b.debug then
       -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
-      local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(M.BUFFER_STATE.ORIGIN, opts)
+      local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(buf, opts)
       M.PROMPT_ARGS_STATE.current_buffer_filetype = buf_filetype
       M.PROMPT_ARGS_STATE.current_buffer_path = buf_path
       M.PROMPT_ARGS_STATE.current_buffer_context = buf_context
@@ -109,29 +109,15 @@ function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, o
     local stream_end_extmark_id
 
     -- open up scratch buffer before setting extmark
-    if opts and opts.debug and opts.debug_fn then
-      if M.BUFFER_STATE.SCRATCH then
-        api.nvim_buf_delete(M.BUFFER_STATE.SCRATCH, { force = true })
-        M.BUFFER_STATE.SCRATCH = nil
-      end
-      M.BUFFER_STATE.SCRATCH = kznllm.make_scratch_buffer()
+    if opts and opts.debug and debug_fn then
+      local scratch_buf = kznllm.make_scratch_buffer()
+      api.nvim_buf_set_var(scratch_buf, 'debug', true)
 
-      -- Set up key mapping to close the buffer
-      api.nvim_buf_set_keymap(M.BUFFER_STATE.SCRATCH, 'n', 'q', '', {
-        noremap = true,
-        silent = true,
-        callback = function()
-          api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
-          api.nvim_buf_delete(M.BUFFER_STATE.SCRATCH, { force = true })
-          M.BUFFER_STATE.SCRATCH = nil
-        end,
-      })
-
-      stream_end_extmark_id = api.nvim_buf_set_extmark(M.BUFFER_STATE.SCRATCH, M.NS_ID, 0, 0, {})
-      debug_fn(data, M.NS_ID, stream_end_extmark_id, opts)
+      stream_end_extmark_id = api.nvim_buf_set_extmark(scratch_buf, M.NS_ID, 0, 0, {})
+      debug_fn(M.PROMPT_ARGS_STATE, data, M.NS_ID, stream_end_extmark_id, opts)
     else
       local _, crow, ccol = unpack(vim.fn.getpos '.')
-      stream_end_extmark_id = api.nvim_buf_set_extmark(M.BUFFER_STATE.ORIGIN, M.NS_ID, crow - 1, ccol - 1, { strict = false })
+      stream_end_extmark_id = api.nvim_buf_set_extmark(buf, M.NS_ID, crow - 1, ccol - 1, { strict = false })
     end
 
     local args = make_curl_args_fn(data, opts)
