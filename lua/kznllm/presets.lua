@@ -25,17 +25,6 @@ M.NS_ID = api.nvim_create_namespace 'kznllm_ns'
 
 local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 
--- Function to read the file contents
-local function read_file_contents(filepath)
-  local file = io.open(filepath, "rb") -- Use binary mode to handle all file types
-  if not file then
-    error("Could not open file: " .. filepath)
-  end
-  local content = file:read("*all")
-  file:close()
-  return content
-end
-
 --- Working implementation of "inline" fill mode
 --- Invokes an LLM via a supported API spec defined by
 ---
@@ -71,8 +60,10 @@ function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, o
       local mention_path = vim.fn.getcwd() .. '/' .. mention:sub(2)
 
       if vim.fn.filereadable(mention_path) == 1 then
-        local mention_content = read_file_contents(mention_path)
-        table.insert(M.PROMPT_ARGS_STATE.context_files, { path = mention_path, content = mention_content })
+        table.insert(M.PROMPT_ARGS_STATE.context_files, {
+          path = mention_path,
+          content = Path:new(mention_path):read()
+        })
       end
     end
 
