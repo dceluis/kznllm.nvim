@@ -121,8 +121,9 @@ function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
     kznllm.write_content_at_extmark(message.role .. ':\n\n', ns_id, extmark_id)
     kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
     kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
-    vim.cmd 'normal! G'
   end
+  vim.cmd 'normal! G'
+  vim.cmd 'normal! zz'
 end
 
 function M.make_job(args, writer_fn, on_exit_fn)

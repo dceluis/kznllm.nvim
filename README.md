@@ -69,42 +69,10 @@ Set the default `SELECTED_PRESET` based on [presets.lua](https://github.com/chot
   config = function(self)
     local presets = require 'kznllm.presets'
 
-    local function switch_presets()
-      local selected_preset = presets.load_selected_preset()
-
-      vim.ui.select(presets, {
-        format_item = function(item)
-          local options = {}
-          for k, v in pairs(item.opts.data_params or {}) do
-            if type(v) == 'number' then
-              local k_parts = {}
-              local k_split = vim.split(k, '_')
-              for i, term in ipairs(k_split) do
-                if i > 1 then
-                  table.insert(k_parts, term:sub(0, 3))
-                else
-                  table.insert(k_parts, term:sub(0, 4))
-                end
-              end
-              table.insert(options, ('%-5s %-5s'):format(table.concat(k_parts, '_'), v))
-            end
-          end
-          table.sort(options)
-          return ('%-20s %10s | %s'):format(item.id .. (item == selected_preset and ' *' or '  '), item.provider, table.concat(options, ' '))
-        end,
-      }, function(choice)
-        if not choice then
-          return
-        end
-        presets.save_selected_preset(index)
-        print(('%-15s provider: %-10s'):format(choice.id, choice.provider))
-      end)
-    end
-
-    vim.keymap.set({ 'n', 'v' }, '<leader>m', switch_presets, { desc = 'switch between presets' })
+    vim.keymap.set({ 'n', 'v' }, '<leader>m', presets.switch_presets, { desc = 'switch between presets' })
 
     local function llm_fill()
-      local selected_preset = presets.load_selected_preset()
+      local selected_preset = presets.load()
 
       presets.invoke_llm(selected_preset)
     end
@@ -113,7 +81,7 @@ Set the default `SELECTED_PRESET` based on [presets.lua](https://github.com/chot
 
     -- optional for debugging purposes
     local function debug()
-      local selected_preset = presets.load_selected_preset()
+      local selected_preset = presets.load()
 
       presets.invoke_llm(selected_preset, { debug = true })
     end

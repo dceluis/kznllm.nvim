@@ -130,6 +130,7 @@ function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
     kznllm.write_content_at_extmark('\n\n============n\n', ns_id, extmark_id)
   end
   vim.cmd 'normal! G'
+  vim.cmd 'normal! zz'
 end
 
 ---@param args table

@@ -103,8 +103,9 @@ function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
     kznllm.write_content_at_extmark(message.role .. ':\n\n', ns_id, extmark_id)
     kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
     kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
-    vim.cmd 'normal! G'
   end
+  vim.cmd 'normal! G'
+  vim.cmd 'normal! zz'
 end
 
 -- TODO: create a new spec vllm_completions
@@ -114,6 +115,7 @@ end
 --   kznllm.write_content_at_extmark(data.prompt, ns_id, extmark_id)
 --   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
 --   vim.cmd 'normal! G'
+--   vim.cmd 'normal! zz'
 -- end
 
 ---@param args table

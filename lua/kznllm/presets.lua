@@ -7,6 +7,7 @@ local Path = require 'plenary.path'
 local api = vim.api
 
 local M = {}
+local presets = {}
 
 --TODO: PROMPT_ARGS_STATE is just a bad persistence layer at the moment, I don't really want to write files everywhere...
 
@@ -157,9 +158,46 @@ function M.invoke_llm(param1, param2, param3, param4)
   end
 end
 
+function M.switch_presets()
+  local idx = vim.g.PRESET_IDX or 1
+  local selected_preset = presets[idx]
+
+  vim.ui.select(presets, {
+    format_item = function(item)
+      local options = {}
+      for k, v in pairs(item.opts.data_params or {}) do
+        if type(v) == 'number' then
+          local k_parts = {}
+          local k_split = vim.split(k, '_')
+          for i, term in ipairs(k_split) do
+            if i > 1 then
+              table.insert(k_parts, term:sub(0, 3))
+            else
+              table.insert(k_parts, term:sub(0, 4))
+            end
+          end
+          table.insert(options, ('%-5s %-5s'):format(table.concat(k_parts, '_'), v))
+        end
+      end
+      table.sort(options)
+      return ('%-20s %10s | %s'):format(item.id .. (item == selected_preset and ' *' or '  '), item.provider, table.concat(options, ' '))
+    end,
+  }, function(choice, idx)
+    if not choice then
+      return
+    end
+    vim.g.PRESET_IDX = idx
+    print(('%-15s provider: %-10s'):format(choice.id, choice.provider))
+  end)
+end
+
+function M.load()
+  local idx = vim.g.PRESET_IDX or 1
+  return presets[idx]
+end
+
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
--- { id = 'openai', opts = { api_key_name = 'VLLM_API_KEY', url = 'http://research.local:8000/v1/chat/completions' } }
-local presets = {
+presets = {
   {
     id = 'deepseek-v2.5',
     provider = 'openrouter',
@@ -293,29 +331,21 @@ local presets = {
     },
   },
   {
-    id = 'completion-model',
+    id = 'chat-model',
     provider = 'vllm',
     spec = 'vllm',
     make_data_fn = make_data_for_openai_chat,
     opts = {
-      model = 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+      model = 'meta-llama/Llama-3.2-3B-Instruct',
       data_params = {
         max_tokens = 8192,
         min_p = 0.9,
         temperature = 2.1,
       },
+      base_url = 'http://worker.local:8000',
       endpoint = '/v1/chat/completions',
     },
   },
 }
-
-function M.load_selected_preset()
-  local selected_preset_idx = vim.g.KZNLLM_SELECTED_PRESET_IDX or 1
-  return presets[selected_preset_idx]
-end
-
-function M.save_selected_preset(index)
-  vim.g.KZNLLM_SELECTED_PRESET_IDX = index
-end
 
 return vim.tbl_extend('keep', M, presets)
