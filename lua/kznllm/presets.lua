@@ -159,8 +159,7 @@ function M.invoke_llm(param1, param2, param3, param4)
 end
 
 function M.switch_presets()
-  local idx = vim.g.PRESET_IDX or 1
-  local selected_preset = presets[idx]
+  local _, selected_preset = M.load()
 
   vim.ui.select(presets, {
     format_item = function(item)
