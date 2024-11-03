@@ -37,20 +37,23 @@ function M.make_prompt_from_template(prompt_template_path, prompt_args)
 end
 
 ---@param content string
+---@param buf_id integer
+---@param ns_id integer
 ---@param extmark_id integer
-function M.write_content_at_extmark(content, ns_id, extmark_id)
-  local extmark = api.nvim_buf_get_extmark_by_id(0, ns_id, extmark_id, { details = false })
+function M.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
+  local extmark = api.nvim_buf_get_extmark_by_id(buf_id, ns_id, extmark_id, { details = false })
   local mrow, mcol = extmark[1], extmark[2]
 
   local lines = vim.split(content, '\n')
 
   vim.cmd 'undojoin'
-  api.nvim_buf_set_text(0, mrow, mcol, mrow, mcol, lines)
+  api.nvim_buf_set_text(buf_id, mrow, mcol, mrow, mcol, lines)
 end
 
 ---Creates a buffer in markdown mode (for syntax highlighting)
 function M.make_scratch_buffer()
   local buf_id = api.nvim_create_buf(false, true)
+  -- vim.api.nvim_buf_set_var(buf_id, 'debug', true)
 
   -- api.nvim_set_option_value('buflisted', true, { buf = buf_id })
   api.nvim_set_option_value('filetype', 'markdown', { buf = buf_id })
@@ -60,6 +63,16 @@ function M.make_scratch_buffer()
   api.nvim_set_option_value('wrap', true, { win = 0 })
   api.nvim_set_option_value('linebreak', true, { win = 0 })
   api.nvim_set_option_value('breakindent', true, { win = 0 })
+
+  -- Set up key mapping to close the buffer
+  api.nvim_buf_set_keymap(buf_id, 'n', 'q', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
+      api.nvim_buf_delete(buf_id, { force = true })
+    end,
+  })
 
   local num_lines = api.nvim_buf_line_count(buf_id)
   api.nvim_win_set_cursor(0, { num_lines, 0 })
@@ -85,11 +98,12 @@ end
 --- Returns an appropriate position to stream output tokens and
 ---
 ---@param opts table optional values including debug mode
+---@return string visual_selection returns the full selection
 ---@return integer srow the starting row of the selection
 ---@return integer scol the starting column of the selection
 ---@return integer erow the ending row of the selection
 ---@return integer ecol the ending column of the selection
-function M.get_visual_selection_pos()
+function M.get_visual_selection(opts)
   local mode = api.nvim_get_mode().mode
 
   -- get visual selection and current cursor position (1-indexed)
@@ -101,31 +115,23 @@ function M.get_visual_selection_pos()
   if srow > erow or (srow == erow and scol > ecol) then
     srow, erow, scol, ecol = erow, srow, ecol, scol
   end
-
-  return srow, scol, erow, ecol
-end
-
----Retrieves the visual selection in the current buffer based on the user's selection.
----
----@param opts table optional values including debug mode
----@return string visual_selection returns the full selection
-function M.get_visual_selection(opts)
-  local srow, scol, erow, ecol = M.get_visual_selection_pos()
   
-  -- in visual block and visual line mode, we expect first column of srow and last column of erow
-  local mode = api.nvim_get_mode().mode
-  if mode == 'V' or mode == '\22' or mode == 'n' then
-    scol, ecol = 0, -1
-  else
+  if mode == 'V' or mode == '\22' then
+    -- in visual block and visual line mode, we expect first column of srow and last column of erow
     local erow_content = vim.api.nvim_buf_get_lines(0, erow, erow + 1, false)[1]
-    if ecol < #erow_content then
-      ecol = ecol + 1
-    end
+    scol, ecol = 0, #erow_content
+  elseif mode == 'v' then
+    -- in visual mode we need to include the last column of erow
+    -- capped at the row length, as visual mode can move the cursor past the row end
+    local erow_content = vim.api.nvim_buf_get_lines(0, erow, erow + 1, false)[1]
+    ecol = math.min(ecol + 1, #erow_content)
+  else
+    -- in all others modes we need to exclude the last column of erow
   end
 
   -- handling + cleanup for visual selection
   local visual_selection
-  local replace_mode = not (mode == 'n')
+  local replace_mode = (mode == 'v' or mode == 'V' or mode == '\22')
 
   if replace_mode then
     api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', false, true, true), 'nx', false)
@@ -217,11 +223,13 @@ end
 --- Makes a no-op change to the buffer at the specified extmark.
 --- This is used before making changes to avoid calling undojoin after undo.
 ---
+---@param buf_id integer
+---@param ns_id integer
 ---@param extmark_id integer the id of the extmark
-function M.noop(ns_id, extmark_id)
-  local extmark = api.nvim_buf_get_extmark_by_id(0, ns_id, extmark_id, { details = false })
+function M.noop(buf_id, ns_id, extmark_id)
+  local extmark = api.nvim_buf_get_extmark_by_id(buf_id, ns_id, extmark_id, { details = false })
   local mrow, mcol = extmark[1], extmark[2]
-  api.nvim_buf_set_text(0, mrow, mcol, mrow, mcol, {})
+  api.nvim_buf_set_text(buf_id, mrow, mcol, mrow, mcol, {})
 end
 
 return M

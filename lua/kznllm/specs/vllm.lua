@@ -11,6 +11,7 @@ Load somewhere safely from config `export %s=<api_key>`]]
 local kznllm = require 'kznllm'
 local Path = require 'plenary.path'
 local Job = require 'plenary.job'
+local api = vim.api
 
 local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
 local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
@@ -47,12 +48,64 @@ function M.make_curl_args(data, opts)
   return args
 end
 
+---Example implementation of a `make_data_fn` compatible with `kznllm.invoke_llm` for anthropic spec
+---@param opts table
+---@return table
+function M.make_data_fn(kzn_state, opts)
+  local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
+  local data = {
+    system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', kzn_state),
+    messages = {
+      {
+        role = 'user',
+        content = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_user_prompt.xml.jinja', kzn_state),
+      },
+    },
+    model = opts.model,
+    stream = true,
+  }
+  data = vim.tbl_extend('keep', data, opts.data_params)
+
+  return data
+end
+
+function M.debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
+  if opts and opts.debug then
+    vim.print("[kznllm] debugging")
+  else
+    return
+  end
+
+  buf_id = kznllm.make_scratch_buffer()
+  extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
+
+  kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
+  kznllm.write_content_at_extmark('\n\n---\n\n', buf_id, ns_id, extmark_id)
+
+  kznllm.write_content_at_extmark('system' .. ':\n\n', buf_id, ns_id, extmark_id)
+  kznllm.write_content_at_extmark(curl_data.system, buf_id, ns_id, extmark_id)
+  kznllm.write_content_at_extmark('\n\n---\n\n', buf_id, ns_id, extmark_id)
+  for _, message in ipairs(curl_data.messages) do
+    kznllm.write_content_at_extmark(message.role .. ':\n\n', buf_id, ns_id, extmark_id)
+    kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
+    kznllm.write_content_at_extmark('\n\n---\n\n', buf_id, ns_id, extmark_id)
+  end
+  vim.cmd 'normal! G'
+  vim.cmd 'normal! zz'
+
+  return {stream_buf_id = buf_id, stream_extmark_id = extmark_id}
+end
+
+function M.before_request(...)
+  return debug_fn(...)
+end
+
 --- Process server-sent events based on OpenAI spec
 --- [See Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream)
 ---
 ---@param line string
 ---@return string
-local function handle_data(line)
+local function on_response(line)
   -- based on sse spec (OpenAI spec uses data-only server-sent events)
   local data = line:match '^data: (.+)$'
 
@@ -70,66 +123,29 @@ local function handle_data(line)
   return content
 end
 
----Example implementation of a `make_data_fn` compatible with `kznllm.invoke_llm` for anthropic spec
----@param prompt_args any
----@param opts any
----@return table
-function M.make_data_fn(prompt_args, opts)
-  local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
-  local data = {
-    system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', prompt_args),
-    messages = {
-      {
-        role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_user_prompt.xml.jinja', prompt_args),
-      },
-    },
-    model = opts.model,
-    stream = true,
-  }
-  data = vim.tbl_extend('keep', data, opts.data_params)
-
-  return data
+---@param kzn_state table
+---@param content string
+---@param buf_id integer
+---@param ns_id integer
+---@param extmark_id integer
+---@param opts table
+function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
+  kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
 end
 
-function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
-  kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
-  kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
-
-  kznllm.write_content_at_extmark('system' .. ':\n\n', ns_id, extmark_id)
-  kznllm.write_content_at_extmark(data.system, ns_id, extmark_id)
-  kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
-  for _, message in ipairs(data.messages) do
-    kznllm.write_content_at_extmark(message.role .. ':\n\n', ns_id, extmark_id)
-    kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
-    kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
-  end
-  vim.cmd 'normal! G'
-  vim.cmd 'normal! zz'
-end
-
--- TODO: create a new spec vllm_completions
--- function M.completions_debug_fn(data, ns_id, extmark_id, opts)
---   kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
---   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
---   kznllm.write_content_at_extmark(data.prompt, ns_id, extmark_id)
---   kznllm.write_content_at_extmark('\n\n---\n\n', ns_id, extmark_id)
---   vim.cmd 'normal! G'
---   vim.cmd 'normal! zz'
--- end
-
----@param args table
----@param writer_fn fun(content: string)
-function M.make_job(args, writer_fn, on_exit_fn)
+---@param kzn_state table
+---@param curl_args table
+---@param on_content_fn fun(content: string)
+function M.make_job(kzn_state, curl_args, on_content_fn)
   local active_job = Job:new {
     command = 'curl',
-    args = args,
+    args = curl_args,
     enable_recording = true,
     on_stdout = function(_, line)
-      local content = handle_data(line)
+      local content = on_response(line)
       if content and content ~= nil then
         vim.schedule(function()
-          writer_fn(content)
+          on_content_fn(content)
         end)
       end
     end,
@@ -143,8 +159,6 @@ function M.make_job(args, writer_fn, on_exit_fn)
       vim.schedule(function()
         if exit_code and exit_code ~= 0 then
           vim.notify('[Curl] (exit code: ' .. exit_code .. ')\n' .. stdout_message, vim.log.levels.ERROR)
-        else
-          on_exit_fn()
         end
       end)
     end,

@@ -11,6 +11,7 @@ Load somewhere safely from config `export %s=<api_key>`]]
 local kznllm = require 'kznllm'
 local Path = require 'plenary.path'
 local Job = require 'plenary.job'
+local api = vim.api
 
 local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
 local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
@@ -18,9 +19,11 @@ local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.
 ---
----@param data table
+---@param kzn_state table
+---@param curl_data table
+---@param opts table
 ---@return string[]
-function M.make_curl_args(data, opts)
+function M.make_curl_args(kzn_state, curl_data, opts)
   local url = (opts and opts.base_url or BASE_URL) .. (opts and opts.endpoint)
   local api_key_name = opts and opts.api_key_name or API_KEY_NAME
   local api_key = os.getenv(api_key_name)
@@ -38,7 +41,7 @@ function M.make_curl_args(data, opts)
     '-H',
     'Content-Type: application/json',
     '-d',
-    vim.json.encode(data),
+    vim.json.encode(curl_data),
     '-H',
     'Authorization: Bearer ' .. api_key,
     url,
@@ -52,7 +55,7 @@ end
 ---
 ---@param line string
 ---@return string
-local function handle_data(line)
+local function on_response(line)
   -- based on sse spec (OpenAI spec uses data-only server-sent events)
   local data = line:match '^data: (.+)$'
 
@@ -70,16 +73,16 @@ local function handle_data(line)
   return content
 end
 
-function M.make_data_fn(prompt_args, opts)
+function M.make_curl_data(kzn_state, opts)
   local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
   local messages = {
     {
       role = 'system',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_system_prompt.xml.jinja', prompt_args),
+      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_system_prompt.xml.jinja', kzn_state),
     },
     {
       role = 'user',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_user_prompt.xml.jinja', prompt_args),
+      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_user_prompt.xml.jinja', kzn_state),
     },
   }
 
@@ -89,10 +92,10 @@ function M.make_data_fn(prompt_args, opts)
     stream = true,
   }
 
-  if prompt_args.replace and opts.prefill and opts.stop_param then
+  if kzn_state.replace and opts.prefill and opts.stop_param then
     table.insert(messages, {
       role = 'assistant',
-      content = opts.prefill .. prompt_args.current_buffer_filetype .. '\n',
+      content = opts.prefill .. kzn_state.current_buffer_filetype .. '\n',
     })
     data = vim.tbl_extend('keep', data, opts.stop_param)
   end
@@ -102,31 +105,57 @@ function M.make_data_fn(prompt_args, opts)
   return data
 end
 
-function M.debug_fn(prompt_args, data, ns_id, extmark_id, opts)
-  kznllm.write_content_at_extmark('model: ' .. opts.model, ns_id, extmark_id)
-  for _, message in ipairs(data.messages) do
-    kznllm.write_content_at_extmark('\n\n============ ' .. message.role .. ' message: ============ \n\n', ns_id, extmark_id)
-    kznllm.write_content_at_extmark(message.content, ns_id, extmark_id)
+local function debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
+  if opts and opts.debug then
+    vim.print("[kznllm] debugging")
+  else
+    return
   end
-  if not (prompt_args.replace and opts.prefill) then
-    kznllm.write_content_at_extmark('\n\n============n\n', ns_id, extmark_id)
+
+  buf_id = kznllm.make_scratch_buffer()
+  extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
+
+  kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
+  for _, message in ipairs(curl_data.messages) do
+    kznllm.write_content_at_extmark('\n\n============ ' .. message.role .. ' message: ============ \n\n', buf_id, ns_id, extmark_id)
+    kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
+  end
+  if not (kzn_state.replace and opts.prefill) then
+    kznllm.write_content_at_extmark('\n\n============n\n', buf_id, ns_id, extmark_id)
   end
   vim.cmd 'normal! G'
   vim.cmd 'normal! zz'
+
+  return {stream_buf_id = buf_id, stream_extmark_id = extmark_id}
 end
 
----@param args table
----@param writer_fn fun(content: string)
-function M.make_job(args, writer_fn, on_exit_fn)
+function M.before_request(...)
+  return debug_fn(...)
+end
+
+---@param kzn_state table
+---@param content string
+---@param buf_id integer
+---@param ns_id integer
+---@param extmark_id integer
+---@param opts table
+function M.on_content_fn(kzn_state, content, buf_id, ns_id, extmark_id, opts)
+  kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
+end
+
+---@param kzn_state table
+---@param curl_args table
+---@param on_content_fn fun(content: string)
+function M.make_job(kzn_state, curl_args, on_content_fn)
   local active_job = Job:new {
     command = 'curl',
-    args = args,
+    args = curl_args,
     enable_recording = true,
     on_stdout = function(_, line)
-      local content = handle_data(line)
+      local content = on_response(line)
       if content and content ~= nil then
         vim.schedule(function()
-          writer_fn(content)
+          on_content_fn(content)
         end)
       end
     end,
@@ -140,8 +169,6 @@ function M.make_job(args, writer_fn, on_exit_fn)
       vim.schedule(function()
         if exit_code and exit_code ~= 0 then
           vim.notify('[Curl] (exit code: ' .. exit_code .. ')\n' .. stdout_message, vim.log.levels.ERROR)
-        else
-          on_exit_fn()
         end
       end)
     end,

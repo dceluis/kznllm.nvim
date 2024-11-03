@@ -3,26 +3,12 @@
 -- Your lazy config still wants to define the keymaps to make it work (see the main project README.md for recommended setup)
 --
 local kznllm = require 'kznllm'
+---@class Path
 local Path = require 'plenary.path'
 local api = vim.api
 
 local M = {}
 local presets = {}
-
---TODO: PROMPT_ARGS_STATE is just a bad persistence layer at the moment, I don't really want to write files everywhere...
-
-M.PROMPT_ARGS_STATE = {
-  current_buffer_path = nil,
-  current_buffer_context = nil,
-  current_buffer_filetype = nil,
-  visual_selection = nil,
-  user_query = nil,
-  replace = nil,
-  context_files = nil,
-  prefill = nil,
-}
-
-M.NS_ID = api.nvim_create_namespace 'kznllm_ns'
 
 local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 
@@ -32,111 +18,171 @@ local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 --- Must provide the function for constructing cURL arguments and a handler
 --- function for processing server-sent events.
 ---
----@param make_data_fn fun(prompt_args: table, opts: table)
----@param make_curl_args_fn fun(data: table, opts: table)
----@param make_job_fn fun(data: table, writer_fn: fun(content: string), on_exit_fn: fun())
----@param opts { debug: string?, debug_fn: fun(data: table, ns_id: integer, extmark_id: integer, opts: table)?, stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean }
-function M._invoke_llm(make_data_fn, make_curl_args_fn, make_job_fn, debug_fn, opts)
+---@param make_curl_data_fn fun(kzn_state: table, opts: table)
+---@param make_curl_args_fn fun(kzn_state: table, curl_data: table, opts: table)
+---@param make_job_fn fun(kzn_state: table, args: table, on_content_fn: fun(content: string), opts: table)
+---@param on_content_fn fun(kzn_state: table, content: string, buf_id: integer, ns_id: integer, extmark_id: integer, opts)
+---@param before_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
+---@param after_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
+---@param opts { stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean, prompt: string }
+function M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+  local KZN_STATE = {
+    current_buffer_path = nil,
+    current_buffer_context = nil,
+    current_buffer_filetype = nil,
+    visual_selection = nil,
+    user_query = nil,
+    context_files = nil,
+    prefill = nil,
+
+    origin_buf_id = nil,
+    stream_buf_id = nil,
+    ns_id = nil,
+    stream_extmark_id = nil,
+
+    curl_args = nil,
+    curl_data = nil,
+  }
+
   api.nvim_clear_autocmds { group = group }
-  local origin_buf_id = api.nvim_win_get_buf(0)
 
   local active_job
 
   kznllm.get_user_input(function(input)
-    M.PROMPT_ARGS_STATE.user_query = input
-    M.PROMPT_ARGS_STATE.replace = not (api.nvim_get_mode().mode == 'n')
-
-    local visual_selection, crow, ccol = kznllm.get_visual_selection(opts)
-    M.PROMPT_ARGS_STATE.visual_selection = visual_selection
+    KZN_STATE.origin_buf_id = api.nvim_win_get_buf(0)
+    KZN_STATE.user_query = input
+    KZN_STATE.ns_id = api.nvim_create_namespace 'kznllm_ns'
 
     local context_dir = kznllm.find_context_directory(opts)
-    M.PROMPT_ARGS_STATE.context_files = {}
+    KZN_STATE.context_files = {}
 
     if context_dir then
-      M.PROMPT_ARGS_STATE.context_files = kznllm.get_project_files(context_dir, opts)
+      KZN_STATE.context_files = kznllm.get_project_files(context_dir, opts)
     end
 
-    for mention in input:gmatch('@[%w./]+') do
-      local mention_path = vim.fn.getcwd() .. '/' .. mention:sub(2)
+    local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
+    KZN_STATE.visual_selection = visual_selection
 
-      if vim.fn.filereadable(mention_path) == 1 then
-        table.insert(M.PROMPT_ARGS_STATE.context_files, {
-          path = mention_path,
-          content = Path:new(mention_path):read()
-        })
+    -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
+    local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(KZN_STATE.origin_buf_id, opts)
+
+    local cursor_pos = "<CURSOR_POS>"
+    local cursor_end = "<CURSOR_END>"
+    local buf_lines = vim.split(buf_context, "\n")
+    local new_line = buf_lines[srow+1]:sub(1, scol) .. cursor_pos .. buf_lines[srow+1]:sub(scol + 1)
+    buf_lines[srow + 1] = new_line
+    if visual_selection then
+      local epos = ecol
+      if srow == erow then
+        epos = epos + #cursor_pos
       end
+
+      new_line = buf_lines[erow+1]:sub(1, epos) .. cursor_end .. buf_lines[erow+1]:sub(epos + 1)
+      buf_lines[erow + 1] = new_line
     end
+    buf_context = table.concat(buf_lines, "\n")
 
-    -- don't update current context if scratch buffer is open
-    if not vim.b.debug then
-      -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
-      local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(origin_buf_id, opts)
-      M.PROMPT_ARGS_STATE.current_buffer_filetype = buf_filetype
-      M.PROMPT_ARGS_STATE.current_buffer_path = buf_path
-      M.PROMPT_ARGS_STATE.current_buffer_context = buf_context
+    KZN_STATE.current_buffer_filetype = buf_filetype
+    KZN_STATE.current_buffer_path = buf_path
+    KZN_STATE.current_buffer_context = buf_context
 
-      if not visual_selection then
-        local srow, scol, erow, ecol = kznllm.get_visual_selection_pos()
-        local cursor_pos = "<CURSOR_POS>"
-        local buf_lines = vim.split(buf_context, "\n")
-        local new_line = buf_lines[erow+1]:sub(1, ecol) .. "<CURSOR_POS>" .. buf_lines[erow+1]:sub(ecol + 1) 
-        buf_lines[erow + 1] = new_line
-        buf_context = table.concat(buf_lines, "\n")
+    KZN_STATE.prefill = opts.prefill
 
-        M.PROMPT_ARGS_STATE.current_buffer_context = buf_context
-      end
-    end
-    M.PROMPT_ARGS_STATE.prefill = opts.prefill
+    KZN_STATE.stream_buf_id = KZN_STATE.origin_buf_id
+    KZN_STATE.stream_extmark_id = api.nvim_buf_set_extmark(KZN_STATE.stream_buf_id, KZN_STATE.ns_id, srow, scol, { strict = false })
 
-    local data = make_data_fn(M.PROMPT_ARGS_STATE, opts)
-
-    local stream_end_extmark_id
-    local stream_buf_id = origin_buf_id
+    KZN_STATE.curl_data = make_curl_data_fn(KZN_STATE, opts) or {}
+    KZN_STATE.curl_args = make_curl_args_fn(KZN_STATE, KZN_STATE.curl_data, opts) or {}
 
     -- open up scratch buffer before setting extmark
-    if opts and opts.debug and debug_fn then
-      local scratch_buf_id = kznllm.make_scratch_buffer()
-      api.nvim_buf_set_var(scratch_buf_id, 'debug', true)
-      stream_buf_id = scratch_buf_id
-
-      stream_end_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, M.NS_ID, 0, 0, {})
-      debug_fn(data, M.NS_ID, stream_end_extmark_id, opts)
-    else
-      stream_end_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, M.NS_ID, crow, ccol, { strict = false })
+    if before_request_fn then
+      local new_state = before_request_fn(
+        KZN_STATE,
+        KZN_STATE.curl_data,
+        KZN_STATE.stream_buf_id,
+        KZN_STATE.ns_id,
+        KZN_STATE.stream_extmark_id,
+        opts
+      )
+      if new_state then
+        KZN_STATE = vim.tbl_extend('force', KZN_STATE, new_state)
+      end
     end
 
-    local args = make_curl_args_fn(data, opts)
-
     -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
-    kznllm.noop(M.NS_ID, stream_end_extmark_id)
+    kznllm.noop(
+      KZN_STATE.stream_buf_id,
+      KZN_STATE.ns_id,
+      KZN_STATE.stream_extmark_id
+    )
 
-    active_job = make_job_fn(args, function(content)
-      kznllm.write_content_at_extmark(content, M.NS_ID, stream_end_extmark_id)
-    end, function()
-      api.nvim_buf_del_extmark(stream_buf_id, M.NS_ID, stream_end_extmark_id)
-    end)
+    if make_job_fn then
+      active_job = make_job_fn(
+        KZN_STATE,
+        KZN_STATE.curl_args,
+        function (content)
+          on_content_fn(KZN_STATE, content, KZN_STATE.stream_buf_id, KZN_STATE.ns_id, KZN_STATE.stream_extmark_id, opts)
+        end,
+        opts
+      )
 
-    active_job:start()
+      api.nvim_create_autocmd('User', {
+        group = group,
+        pattern = 'LLM_Escape',
+        callback = function()
+          if active_job.is_shutdown ~= true then
+            active_job:shutdown()
+            print 'LLM streaming cancelled'
+          end
+        end,
+      })
 
-    api.nvim_create_autocmd('User', {
-      group = group,
-      pattern = 'LLM_Escape',
-      callback = function()
-        if active_job.is_shutdown ~= true then
-          active_job:shutdown()
-          print 'LLM streaming cancelled'
-        end
-      end,
-    })
+      api.nvim_buf_set_keymap(KZN_STATE.stream_buf_id, 'n', '<Esc>', '', {
+        noremap = true,
+        silent = true,
+        callback = function()
+          api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
+          api.nvim_buf_del_keymap(KZN_STATE.stream_buf_id, 'n', '<Esc>')
+        end,
+      })
+
+      active_job:sync(20000, 100)
+
+      if after_request_fn then
+        after_request_fn(
+          KZN_STATE,
+          KZN_STATE.curl_args,
+          KZN_STATE.stream_buf_id,
+          KZN_STATE.ns_id,
+          KZN_STATE.stream_extmark_id,
+          opts
+        )
+      else
+        vim.schedule(function()
+          api.nvim_buf_del_extmark(
+            KZN_STATE.stream_buf_id,
+            KZN_STATE.ns_id,
+            KZN_STATE.stream_extmark_id
+          )
+        end)
+      end
+    end
   end, opts.prompt)
 end
 
-function M.invoke_llm(param1, param2, param3, param4)
-  if type(param1) == 'table' and param1.spec then
-    local preset = param1
-    local opts = param2
+function M.invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+  if type(make_curl_data_fn) == 'table' and make_curl_data_fn.spec then
+    local preset = make_curl_data_fn
+    opts = make_curl_args_fn
 
-    local spec = require(('kznllm.specs.%s'):format(preset.spec))
+    local spec
+    if type(preset.spec) == 'table' then
+      spec = preset.spec
+    elseif type(preset.spec) == 'string' then
+      spec = require(('kznllm.specs.%s'):format(preset.spec))
+    else
+      error('Invalid spec type. Expected table or string.')
+    end
 
     local default_opts = {}
     if preset.id then
@@ -147,19 +193,21 @@ function M.invoke_llm(param1, param2, param3, param4)
     merged_opts = vim.tbl_extend('force', merged_opts, opts or {})
 
     return M._invoke_llm(
-      spec.make_data_fn,
+      spec.make_curl_data,
       spec.make_curl_args,
       spec.make_job,
-      spec.debug_fn,
+      spec.on_content,
+      spec.before_request,
+      spec.after_request,
       merged_opts
     )
   else
-    return M._invoke_llm(param1, param2, param3, param4)
+    return M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   end
 end
 
 function M.switch_presets()
-  local _, selected_preset = M.load()
+  local selected_preset = M.load()
 
   vim.ui.select(presets, {
     format_item = function(item)
@@ -179,7 +227,7 @@ function M.switch_presets()
         end
       end
       table.sort(options)
-      return ('%-20s %10s | %s'):format(item.id .. (item == selected_preset and ' *' or '  '), item.provider, table.concat(options, ' '))
+      return ('%-20s %10s │ %s'):format(item.id .. (item == selected_preset and ' *' or '  '), item.provider, table.concat(options, ' '))
     end,
   }, function(choice, idx)
     if not choice then
@@ -201,7 +249,6 @@ presets = {
     id = 'deepseek-v2.5',
     provider = 'openrouter',
     spec = 'openai',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'deepseek/deepseek-chat',
       data_params = {
@@ -217,11 +264,24 @@ presets = {
     id = 'claude-3.5-sonnet',
     provider = 'anthropic',
     spec = 'anthropic',
-    make_data_fn = make_data_for_anthropic_chat,
     opts = {
-      model = 'claude-3-5-sonnet-20240620',
+      model = 'claude-3-5-sonnet-20241022',
       data_params = {
         max_tokens = 8192,
+        temperature = 0.7,
+      },
+      base_url = 'https://api.anthropic.com',
+      endpoint = '/v1/messages',
+    },
+  },
+  {
+    id = 'claude-3-haiku',
+    provider = 'anthropic',
+    spec = 'anthropic',
+    opts = {
+      model = 'claude-3-haiku-20240307',
+      data_params = {
+        max_tokens = 4096,
         temperature = 0.7,
       },
       base_url = 'https://api.anthropic.com',
@@ -232,7 +292,6 @@ presets = {
     id = 'gpt-4o-mini',
     provider = 'openrouter',
     spec = 'openai',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'openai/gpt-4o-mini',
       data_params = {
@@ -245,10 +304,54 @@ presets = {
     },
   },
   {
+    id = 'gpt-4o',
+    provider = 'openrouter',
+    spec = 'openai',
+    opts = {
+      model = 'openai/gpt-4o',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 1.2,
+      },
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
+    id = 'o1-mini',
+    provider = 'openrouter',
+    spec = 'openai',
+    opts = {
+      model = 'openai/o1-mini',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 1.2,
+      },
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
+    id = 'o1-preview',
+    provider = 'openrouter',
+    spec = 'openai',
+    opts = {
+      model = 'openai/o1-preview',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 1.2,
+      },
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
     id = 'chat-model',
     provider = 'groq',
     spec = 'groq',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'llama-3.1-70b-versatile',
       data_params = {
@@ -266,7 +369,6 @@ presets = {
     id = 'chat-model',
     provider = 'lambda',
     spec = 'lambda',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'hermes-3-llama-3.1-405b-fp8',
       data_params = {
@@ -286,7 +388,6 @@ presets = {
     id = 'chat-model',
     provider = 'anthropic',
     spec = 'anthropic',
-    make_data_fn = make_data_for_anthropic_chat,
     opts = {
       model = 'claude-3-5-sonnet-20240620',
       data_params = {
@@ -301,7 +402,6 @@ presets = {
     id = 'chat-model',
     provider = 'openai',
     spec = 'openai',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'gpt-4o-mini',
       data_params = {
@@ -316,7 +416,6 @@ presets = {
     id = 'chat-model',
     provider = 'deepseek',
     spec = 'deepseek',
-    make_data_fn = make_data_for_deepseek_chat,
     opts = {
       model = 'deepseek-chat',
       data_params = {
@@ -333,7 +432,6 @@ presets = {
     id = 'chat-model',
     provider = 'vllm',
     spec = 'vllm',
-    make_data_fn = make_data_for_openai_chat,
     opts = {
       model = 'meta-llama/Llama-3.2-3B-Instruct',
       data_params = {
