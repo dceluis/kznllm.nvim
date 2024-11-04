@@ -60,15 +60,19 @@ end
 ---@param opts table
 ---@return table
 function M.make_curl_data(kzn_state, opts)
+  kzn_state.prefill = opts.prefill
+
   local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
+  local template_scope = opts.template_scope or 'openai'
+
   local messages = {
     {
       role = 'system',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_system_prompt.xml.jinja', kzn_state),
+      content = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_system_prompt.xml.jinja', kzn_state),
     },
     {
       role = 'user',
-      content = kznllm.make_prompt_from_template(template_directory / 'nous_research/fill_mode_user_prompt.xml.jinja', kzn_state),
+      content = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_user_prompt.xml.jinja', kzn_state),
     },
   }
 
@@ -78,7 +82,7 @@ function M.make_curl_data(kzn_state, opts)
     stream = true,
   }
 
-  if kzn_state.replace and opts.prefill and opts.stop_param then
+  if kzn_state.visual_selection and opts.prefill and opts.stop_param then
     table.insert(messages, {
       role = 'assistant',
       content = opts.prefill .. kzn_state.current_buffer_filetype .. '\n',
@@ -132,5 +136,9 @@ end
 function M.after_request(...)
   return shared.after_request(...)
 end
+
+M.opts = {
+  template_scope = 'nous_research'
+}
 
 return M

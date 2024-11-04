@@ -44,7 +44,7 @@ local function debug_fn(kzn_state, curl_data, opts)
     kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
   end
 
-  if not (kzn_state.replace and opts.prefill) then
+  if not (kzn_state.visual_selection and opts.prefill) then
     kznllm.write_content_at_extmark('\n\n============\n\n', buf_id, ns_id, extmark_id)
   end
   vim.cmd 'normal! G'
@@ -132,6 +132,8 @@ function M.make_job(kzn_state, curl_args, on_start_fn, on_response_fn, on_conten
       end)
     end,
   }
+
+  api.nvim_clear_autocmds { group = group }
 
   vim.api.nvim_create_autocmd('User', {
     group = group,

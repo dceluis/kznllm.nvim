@@ -64,19 +64,17 @@ end
 ---@param opts table
 ---@return table
 function M.make_curl_data(kzn_state, opts)
-  if kzn_state.visual_selection and #kzn_state.visual_selection > 0 then
-    kzn_state.replace = true
-  else
-    kzn_state.replace = false
-  end
+  kzn_state.prefill = opts.prefill
 
   local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
+  local template_scope = opts.template_scope or 'anthropic'
+
   local data = {
-    system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', kzn_state),
+    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_system_prompt.xml.jinja', kzn_state),
     messages = {
       {
         role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_user_prompt.xml.jinja', kzn_state),
+        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_user_prompt.xml.jinja', kzn_state),
       },
     },
     model = opts.model,

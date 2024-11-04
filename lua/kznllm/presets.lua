@@ -41,8 +41,6 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
     curl_data = nil,
   }
 
-  api.nvim_clear_autocmds { group = group }
-
   kznllm.get_user_input(function(input)
     KZN_STATE.origin_buf_id = api.nvim_win_get_buf(0)
     KZN_STATE.user_query = input
@@ -60,8 +58,6 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
     KZN_STATE.current_buffer_path = buf_path
     KZN_STATE.current_buffer_context = buf_context
     KZN_STATE.visual_selection = visual_selection
-
-    KZN_STATE.prefill = opts.prefill
 
     KZN_STATE.curl_data = make_curl_data_fn(KZN_STATE, opts) or {}
     KZN_STATE.curl_args = make_curl_args_fn(KZN_STATE, KZN_STATE.curl_data, opts) or {}

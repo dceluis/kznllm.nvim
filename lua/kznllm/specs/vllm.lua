@@ -59,13 +59,17 @@ end
 ---@param opts table
 ---@return table
 function M.make_curl_data(kzn_state, opts)
+  kzn_state.prefill = opts.prefill
+
   local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
+  local template_scope = opts.template_scope or 'vllm'
+
   local data = {
-    system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', kzn_state),
+    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_system_prompt.xml.jinja', kzn_state),
     messages = {
       {
         role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_user_prompt.xml.jinja', kzn_state),
+        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_user_prompt.xml.jinja', kzn_state),
       },
     },
     model = opts.model,
@@ -117,5 +121,9 @@ end
 function M.after_request(...)
   return shared.after_request(...)
 end
+
+M.opts = {
+  template_scope = 'anthropic'
+}
 
 return M
