@@ -18,6 +18,7 @@ local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 --- Must provide the function for constructing cURL arguments and a handler
 --- function for processing server-sent events.
 ---
+---@param get_current_file_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_data_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_args_fn fun(kzn_state: table, curl_data: table, opts: table)
 ---@param make_job_fn fun(kzn_state: table, args: table, on_content_fn: fun(content: string), opts: table)
@@ -25,7 +26,7 @@ local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 ---@param before_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
 ---@param after_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
 ---@param opts { stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean, prompt: string }
-function M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   local KZN_STATE = {
     current_buffer_path = nil,
     current_buffer_context = nil,
@@ -60,33 +61,17 @@ function M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_con
       KZN_STATE.context_files = kznllm.get_project_files(context_dir, opts)
     end
 
-    local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
+    local buf_filetype, buf_path, buf_context, visual_selection = get_current_file_fn(KZN_STATE, opts)
+
     KZN_STATE.visual_selection = visual_selection
-
-    -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
-    local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(KZN_STATE.origin_buf_id, opts)
-
-    local cursor_pos = "<CURSOR_POS>"
-    local cursor_end = "<CURSOR_END>"
-    local buf_lines = vim.split(buf_context, "\n")
-    local new_line = buf_lines[srow+1]:sub(1, scol) .. cursor_pos .. buf_lines[srow+1]:sub(scol + 1)
-    buf_lines[srow + 1] = new_line
-    if visual_selection then
-      local epos = ecol
-      if srow == erow then
-        epos = epos + #cursor_pos
-      end
-
-      new_line = buf_lines[erow+1]:sub(1, epos) .. cursor_end .. buf_lines[erow+1]:sub(epos + 1)
-      buf_lines[erow + 1] = new_line
-    end
-    buf_context = table.concat(buf_lines, "\n")
-
     KZN_STATE.current_buffer_filetype = buf_filetype
     KZN_STATE.current_buffer_path = buf_path
     KZN_STATE.current_buffer_context = buf_context
 
     KZN_STATE.prefill = opts.prefill
+
+    -- TODO: move this to an injectable function
+    local _, srow, scol, _, _ = kznllm.get_visual_selection(opts)
 
     KZN_STATE.stream_buf_id = KZN_STATE.origin_buf_id
     KZN_STATE.stream_extmark_id = api.nvim_buf_set_extmark(KZN_STATE.stream_buf_id, KZN_STATE.ns_id, srow, scol, { strict = false })
@@ -170,10 +155,10 @@ function M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_con
   end, opts.prompt)
 end
 
-function M.invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
-  if type(make_curl_data_fn) == 'table' and make_curl_data_fn.spec then
-    local preset = make_curl_data_fn
-    opts = make_curl_args_fn
+function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+  if type(get_current_file_fn) == 'table' and get_current_file_fn.spec then
+    local preset = get_current_file_fn
+    opts = make_curl_data_fn
 
     local spec
     if type(preset.spec) == 'table' then
@@ -193,6 +178,7 @@ function M.invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_cont
     merged_opts = vim.tbl_extend('force', merged_opts, opts or {})
 
     return M._invoke_llm(
+      spec.get_current_file,
       spec.make_curl_data,
       spec.make_curl_args,
       spec.make_job,
@@ -202,7 +188,7 @@ function M.invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_cont
       merged_opts
     )
   else
-    return M._invoke_llm(make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+    return M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   end
 end
 

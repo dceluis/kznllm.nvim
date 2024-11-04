@@ -50,27 +50,10 @@ function M.make_curl_args(kzn_state, curl_data, opts)
   return args
 end
 
---- Process server-sent events based on OpenAI spec
---- [See Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream)
----
----@param line string
----@return string
-local function on_response(line)
-  -- based on sse spec (OpenAI spec uses data-only server-sent events)
-  local data = line:match '^data: (.+)$'
-
-  local content = ''
-
-  if data and data:match '"delta":' then
-    local json = vim.json.decode(data)
-    if json.choices and json.choices[1] and json.choices[1].delta and json.choices[1].delta.content then
-      content = json.choices[1].delta.content
-    else
-      vim.print(data)
-    end
-  end
-
-  return content
+---@param kzn_state table
+---@param opts table
+function M.get_current_file(kzn_state, opts)
+  return shared.get_current_file(kzn_state, opts)
 end
 
 function M.make_curl_data(kzn_state, opts)
@@ -133,13 +116,36 @@ function M.before_request(...)
   return debug_fn(...)
 end
 
+--- Process server-sent events based on OpenAI spec
+--- [See Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream)
+---
+---@param line string
+---@return string
+local function on_response(line)
+  -- based on sse spec (OpenAI spec uses data-only server-sent events)
+  local data = line:match '^data: (.+)$'
+
+  local content = ''
+
+  if data and data:match '"delta":' then
+    local json = vim.json.decode(data)
+    if json.choices and json.choices[1] and json.choices[1].delta and json.choices[1].delta.content then
+      content = json.choices[1].delta.content
+    else
+      vim.print(data)
+    end
+  end
+
+  return content
+end
+
 ---@param kzn_state table
 ---@param content string
 ---@param buf_id integer
 ---@param ns_id integer
 ---@param extmark_id integer
 ---@param opts table
-function M.on_content_fn(kzn_state, content, buf_id, ns_id, extmark_id, opts)
+function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
 end
 

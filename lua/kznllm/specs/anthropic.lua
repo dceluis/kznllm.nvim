@@ -9,6 +9,7 @@ ERROR: anthropic api key is set to %s and is missing from your environment varia
 Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
+local shared = require 'kznllm.specs.shared'
 local Path = require 'plenary.path'
 local Job = require 'plenary.job'
 local api = vim.api
@@ -51,6 +52,12 @@ function M.make_curl_args(kzn_state, curl_data, opts)
   }
 
   return args
+end
+
+---@param kzn_state table
+---@param opts table
+function M.get_current_file(kzn_state, opts)
+  return shared.get_current_file(kzn_state, opts)
 end
 
 ---Example implementation of a `make_curl_data` compatible with `kznllm.invoke_llm` for anthropic spec

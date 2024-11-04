@@ -9,6 +9,7 @@ ERROR: api key is set to %s and is missing from your environment variables.
 Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
+local shared = require 'kznllm.specs.shared'
 local Path = require 'plenary.path'
 local Job = require 'plenary.job'
 local api = vim.api
@@ -46,6 +47,12 @@ function M.make_curl_args(kzn_state, curl_data, opts)
   }
 
   return args
+end
+
+---@param kzn_state table
+---@param opts table
+function M.get_current_file(kzn_state, opts)
+  return shared.get_current_file(kzn_state, opts)
 end
 
 function M.make_curl_data(kzn_state, opts)
@@ -113,7 +120,7 @@ end
 ---
 ---@param line string
 ---@return string
-local function on_response_fn(line)
+local function on_response(line)
   -- based on sse spec (OpenAI spec uses data-only server-sent events)
   local data = line:match '^data: (.+)$'
 
@@ -137,23 +144,23 @@ end
 ---@param ns_id integer
 ---@param extmark_id integer
 ---@param opts table
-function M.on_content_fn(kzn_state, content, buf_id, ns_id, extmark_id, opts)
+function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
 end
 
 ---@param kzn_state table
 ---@param curl_args table
----@param on_content fun(content: string)
-function M.make_job(kzn_state, curl_args, on_content)
+---@param on_content_fn fun(content: string)
+function M.make_job(kzn_state, curl_args, on_content_fn)
   local active_job = Job:new {
     command = 'curl',
     args = curl_args,
     enable_recording = true,
     on_stdout = function(_, line)
-      local content = on_response_fn(line)
+      local content = on_response(line)
       if content and content ~= nil then
         vim.schedule(function()
-          on_content(content)
+          on_content_fn(content)
         end)
       end
     end,

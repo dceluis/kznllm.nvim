@@ -9,6 +9,7 @@ ERROR: api key is set to %s and is missing from your environment variables.
 Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
+local shared = require 'kznllm.specs.shared'
 local Path = require 'plenary.path'
 local Job = require 'plenary.job'
 local api = vim.api
@@ -48,10 +49,17 @@ function M.make_curl_args(data, opts)
   return args
 end
 
----Example implementation of a `make_data_fn` compatible with `kznllm.invoke_llm` for anthropic spec
+---@param kzn_state table
+---@param opts table
+function M.get_current_file(kzn_state, opts)
+  return shared.get_current_file(kzn_state, opts)
+end
+
+---Example implementation of a `make_curl_data` compatible with `kznllm.invoke_llm` for anthropic spec
+---@param kzn_state table
 ---@param opts table
 ---@return table
-function M.make_data_fn(kzn_state, opts)
+function M.make_curl_data(kzn_state, opts)
   local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
   local data = {
     system = kznllm.make_prompt_from_template(template_directory / 'anthropic/fill_mode_system_prompt.xml.jinja', kzn_state),
