@@ -139,10 +139,12 @@ function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn,
   end
 end
 
-function M.switch_presets()
-  local selected_preset = M.load()
+function M.switch_presets(all_presets)
+  all_presets = all_presets or presets
 
-  vim.ui.select(presets, {
+  local selected_preset = M.load(all_presets)
+
+  vim.ui.select(all_presets, {
     format_item = function(item)
       local options = {}
       for k, v in pairs(item.opts.data_params or {}) do
@@ -171,9 +173,11 @@ function M.switch_presets()
   end)
 end
 
-function M.load()
+function M.load(all_presets)
+  all_presets = all_presets or presets
+
   local idx = vim.g.PRESET_IDX or 1
-  return presets[idx]
+  return all_presets[idx]
 end
 
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
@@ -392,4 +396,6 @@ presets = {
   },
 }
 
-return vim.tbl_extend('keep', M, presets)
+M.presets = presets
+
+return M
