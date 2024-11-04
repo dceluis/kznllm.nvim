@@ -222,6 +222,20 @@ presets = {
     },
   },
   {
+    id = 'claude-3.5-haiku',
+    provider = 'anthropic',
+    spec = 'anthropic',
+    opts = {
+      model = 'claude-3-5-haiku-20241022',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.7,
+      },
+      base_url = 'https://api.anthropic.com',
+      endpoint = '/v1/messages',
+    },
+  },
+  {
     id = 'gpt-4o-mini',
     provider = 'openrouter',
     spec = 'openai',

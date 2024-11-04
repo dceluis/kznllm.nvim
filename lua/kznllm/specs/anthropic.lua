@@ -70,11 +70,11 @@ function M.make_curl_data(kzn_state, opts)
   local template_scope = opts.template_scope or 'anthropic'
 
   local data = {
-    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_system_prompt.xml.jinja', kzn_state),
+    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'system_prompt.xml.jinja', kzn_state),
     messages = {
       {
         role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'fill_mode_user_prompt.xml.jinja', kzn_state),
+        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'user_prompt.xml.jinja', kzn_state),
       },
     },
     model = opts.model,
