@@ -9,8 +9,8 @@ ERROR: api key name is set to %s and is missing from your environment variables.
 Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
+local shared = require 'kznllm.specs.shared'
 local Path = require 'plenary.path'
-local Job = require 'plenary.job'
 local api = vim.api
 
 local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
@@ -116,27 +116,31 @@ function M.before_request(...)
   return debug_fn(...)
 end
 
+function M.after_request(kzn_state, curl_args, stream_buf_id, ns_id, stream_extmark_id, opts)
+  vim.api.nvim_buf_del_extmark(stream_buf_id, ns_id, stream_extmark_id)
+end
+
 --- Process server-sent events based on OpenAI spec
 --- [See Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream)
 ---
+---@param kzn_state table
 ---@param line string
----@return string
-local function on_response(line)
+---@param opts table
+---@return string|nil
+function M.on_response(kzn_state, line, opts)
   -- based on sse spec (OpenAI spec uses data-only server-sent events)
   local data = line:match '^data: (.+)$'
 
-  local content = ''
-
   if data and data:match '"delta":' then
     local json = vim.json.decode(data)
+    local content = ''
+
     if json.choices and json.choices[1] and json.choices[1].delta and json.choices[1].delta.content then
       content = json.choices[1].delta.content
-    else
-      vim.print(data)
     end
-  end
 
-  return content
+    return content
+  end
 end
 
 ---@param kzn_state table
@@ -149,37 +153,9 @@ function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
 end
 
----@param kzn_state table
----@param curl_args table
----@param on_content_fn fun(content: string)
-function M.make_job(kzn_state, curl_args, on_content_fn)
-  local active_job = Job:new {
-    command = 'curl',
-    args = curl_args,
-    enable_recording = true,
-    on_stdout = function(_, line)
-      local content = on_response(line)
-      if content and content ~= nil then
-        vim.schedule(function()
-          on_content_fn(content)
-        end)
-      end
-    end,
-    on_stderr = function(message, _)
-      error(message, 1)
-    end,
-    on_exit = function(job, exit_code)
-      local stdout_result = job:result()
-      local stdout_message = table.concat(stdout_result, '\n')
 
-      vim.schedule(function()
-        if exit_code and exit_code ~= 0 then
-          vim.notify('[Curl] (exit code: ' .. exit_code .. ')\n' .. stdout_message, vim.log.levels.ERROR)
-        end
-      end)
-    end,
-  }
-  return active_job
+function M.make_job(...)
+  return shared.make_job(...)
 end
 
 return M

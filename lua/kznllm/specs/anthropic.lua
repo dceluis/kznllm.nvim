@@ -11,7 +11,6 @@ Load somewhere safely from config `export %s=<api_key>`]]
 local kznllm = require 'kznllm'
 local shared = require 'kznllm.specs.shared'
 local Path = require 'plenary.path'
-local Job = require 'plenary.job'
 local api = vim.api
 local current_event_state = nil
 
@@ -119,6 +118,10 @@ function M.before_request(...)
   return debug_fn(...)
 end
 
+function M.after_request(kzn_state, curl_args, stream_buf_id, ns_id, stream_extmark_id, opts)
+  vim.api.nvim_buf_del_extmark(stream_buf_id, ns_id, stream_extmark_id)
+end
+
 --- Anthropic SSE Specification
 --- [See Documentation](https://docs.anthropic.com/en/api/messages-streaming#event-types)
 ---
@@ -140,9 +143,11 @@ end
 --- 4. `message_stop` event
 ---
 --- event types: `[message_start, content_block_start, content_block_delta, content_block_stop, message_delta, message_stop, error]`
+---@param kzn_state table
 ---@param line string
+---@param opts table
 ---@return string|nil
-local function on_response(line)
+function M.on_response(kzn_state, line, opts)
     if line == '' then
       return
     end
@@ -188,38 +193,8 @@ function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
 end
 
----@param kzn_state table
----@param curl_args table
----@param on_content_fn fun(content: string)
-function M.make_job(kzn_state, curl_args, on_content_fn)
-  local active_job = Job:new {
-    command = 'curl',
-    args = curl_args,
-    enable_recording = true,
-    on_stdout = function(_, line)
-      local content = on_response(line)
-
-      if content and content ~= nil then
-        vim.schedule(function()
-          on_content_fn(content)
-        end)
-      end
-    end,
-    on_stderr = function(message, _)
-      error(message, 1)
-    end,
-    on_exit = function(job, exit_code)
-      local stdout_result = job:result()
-      local stdout_message = table.concat(stdout_result, '\n')
-
-      vim.schedule(function()
-        if exit_code and exit_code ~= 0 then
-          vim.notify('[Curl] (exit code: ' .. exit_code .. ')\n' .. stdout_message, vim.log.levels.ERROR)
-        end
-      end)
-    end,
-  }
-  return active_job
+function M.make_job(...)
+  return shared.make_job(...)
 end
 
 return M

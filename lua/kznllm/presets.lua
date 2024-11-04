@@ -21,12 +21,13 @@ local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 ---@param get_current_file_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_data_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_args_fn fun(kzn_state: table, curl_data: table, opts: table)
----@param make_job_fn fun(kzn_state: table, args: table, on_content_fn: fun(content: string), opts: table)
+---@param make_job_fn fun(kzn_state: table, args: table, on_response_fn: fun(line: string), on_content_fn: fun(content: string), on_exit_fn: fun(message: string), opts: table)
+---@param on_response_fn fun(kzn_state: table, line: string, opts)
 ---@param on_content_fn fun(kzn_state: table, content: string, buf_id: integer, ns_id: integer, extmark_id: integer, opts)
 ---@param before_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
 ---@param after_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
 ---@param opts { stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean, prompt: string }
-function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_response_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   local KZN_STATE = {
     current_buffer_path = nil,
     current_buffer_context = nil,
@@ -105,8 +106,23 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
       active_job = make_job_fn(
         KZN_STATE,
         KZN_STATE.curl_args,
+        function (line)
+          return on_response_fn(KZN_STATE, line, opts)
+        end,
         function (content)
-          on_content_fn(KZN_STATE, content, KZN_STATE.stream_buf_id, KZN_STATE.ns_id, KZN_STATE.stream_extmark_id, opts)
+          return on_content_fn(KZN_STATE, content, KZN_STATE.stream_buf_id, KZN_STATE.ns_id, KZN_STATE.stream_extmark_id, opts)
+        end,
+        function (message)
+          if after_request_fn then
+            after_request_fn(
+              KZN_STATE,
+              KZN_STATE.curl_args,
+              KZN_STATE.stream_buf_id,
+              KZN_STATE.ns_id,
+              KZN_STATE.stream_extmark_id,
+              opts
+            )
+          end
         end,
         opts
       )
@@ -131,31 +147,12 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
         end,
       })
 
-      active_job:sync(20000, 100)
-
-      if after_request_fn then
-        after_request_fn(
-          KZN_STATE,
-          KZN_STATE.curl_args,
-          KZN_STATE.stream_buf_id,
-          KZN_STATE.ns_id,
-          KZN_STATE.stream_extmark_id,
-          opts
-        )
-      else
-        vim.schedule(function()
-          api.nvim_buf_del_extmark(
-            KZN_STATE.stream_buf_id,
-            KZN_STATE.ns_id,
-            KZN_STATE.stream_extmark_id
-          )
-        end)
-      end
+      active_job:start()
     end
   end, opts.prompt)
 end
 
-function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_response_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   if type(get_current_file_fn) == 'table' and get_current_file_fn.spec then
     local preset = get_current_file_fn
     opts = make_curl_data_fn
@@ -182,13 +179,14 @@ function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn,
       spec.make_curl_data,
       spec.make_curl_args,
       spec.make_job,
+      spec.on_response,
       spec.on_content,
       spec.before_request,
       spec.after_request,
       merged_opts
     )
   else
-    return M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_content_fn, before_request_fn, after_request_fn, opts)
+    return M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_response_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   end
 end
 
