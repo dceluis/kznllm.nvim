@@ -2,6 +2,8 @@ local M = {}
 
 local kznllm = require 'kznllm'
 local Job = require 'plenary.job'
+local api = vim.api
+local group = vim.api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 
 function M.get_current_file(kzn_state, opts)
   local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
@@ -28,17 +30,84 @@ function M.get_current_file(kzn_state, opts)
   return buf_filetype, buf_path, buf_context, visual_selection
 end
 
+local function debug_fn(kzn_state, curl_data, opts)
+  vim.print("[kznllm] debugging")
+
+  local buf_id = kznllm.make_scratch_buffer()
+  local ns_id = api.nvim_create_namespace 'kznllm_ns'
+  local extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
+
+  kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
+
+  for _, message in ipairs(curl_data.messages) do
+    kznllm.write_content_at_extmark('\n\n============ ' .. message.role .. ' message: ============ \n\n', buf_id, ns_id, extmark_id)
+    kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
+  end
+
+  if not (kzn_state.replace and opts.prefill) then
+    kznllm.write_content_at_extmark('\n\n============\n\n', buf_id, ns_id, extmark_id)
+  end
+  vim.cmd 'normal! G'
+  vim.cmd 'normal! zz'
+
+  return buf_id, extmark_id
+end
+
+function M.before_request(kzn_state, curl_data, opts)
+  local _, srow, scol, _, _ = kznllm.get_visual_selection(opts)
+
+  local stream_buf_id = kzn_state.origin_buf_id
+  local ns_id = api.nvim_create_namespace 'kznllm_ns'
+  local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, srow, scol, { strict = false })
+
+  if opts and opts.debug then
+    debug_fn = opts.debug_fn or debug_fn
+    stream_buf_id, stream_extmark_id = debug_fn(kzn_state, curl_data, opts)
+  end
+
+  -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
+  kznllm.noop(stream_buf_id, ns_id, stream_extmark_id)
+
+  api.nvim_buf_set_keymap(stream_buf_id, 'n', '<Esc>', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
+      api.nvim_buf_del_keymap(stream_buf_id, 'n', '<Esc>')
+    end,
+  })
+
+  api.nvim_buf_set_keymap(stream_buf_id, 'n', 'u', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
+      api.nvim_buf_del_keymap(stream_buf_id, 'n', 'u')
+    end,
+  })
+
+  return {stream_extmark_id = stream_extmark_id, ns_id = ns_id, stream_buf_id = stream_buf_id}
+end
+
+function M.after_request(kzn_state, curl_args, opts)
+  vim.api.nvim_buf_del_extmark(kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+end
+
 ---@param kzn_state table
 ---@param curl_args table
+---@param on_start_fn fun()
 ---@param on_response_fn fun(line: string)
 ---@param on_content_fn fun(content: string)
 ---@param on_exit_fn fun(exit_code: integer, message: string)
 ---@param opts table
-function M.make_job(kzn_state, curl_args, on_response_fn, on_content_fn, on_exit_fn, opts)
+function M.make_job(kzn_state, curl_args, on_start_fn, on_response_fn, on_content_fn, on_exit_fn, opts)
   local active_job = Job:new {
     command = 'curl',
     args = curl_args,
     enable_recording = true,
+    on_start = function()
+      on_start_fn()
+    end,
     on_stdout = function(_, line)
       local content = on_response_fn(line)
       if content and content ~= nil then
@@ -63,6 +132,18 @@ function M.make_job(kzn_state, curl_args, on_response_fn, on_content_fn, on_exit
       end)
     end,
   }
+
+  vim.api.nvim_create_autocmd('User', {
+    group = group,
+    pattern = 'LLM_Escape',
+    callback = function()
+      if active_job.is_shutdown ~= true then
+        active_job:shutdown()
+        print 'LLM streaming cancelled'
+      end
+    end,
+  })
+
   return active_job
 end
 

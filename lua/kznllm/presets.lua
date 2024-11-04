@@ -10,8 +10,6 @@ local api = vim.api
 local M = {}
 local presets = {}
 
-local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
-
 --- Working implementation of "inline" fill mode
 --- Invokes an LLM via a supported API spec defined by
 ---
@@ -21,11 +19,11 @@ local group = api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 ---@param get_current_file_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_data_fn fun(kzn_state: table, opts: table)
 ---@param make_curl_args_fn fun(kzn_state: table, curl_data: table, opts: table)
----@param make_job_fn fun(kzn_state: table, args: table, on_response_fn: fun(line: string), on_content_fn: fun(content: string), on_exit_fn: fun(message: string), opts: table)
+---@param make_job_fn fun(kzn_state: table, args: table, on_start_fn: fun(), on_response_fn: fun(line: string), on_content_fn: fun(content: string), on_exit_fn: fun(exit_code: integer, message: string), opts: table)
 ---@param on_response_fn fun(kzn_state: table, line: string, opts)
----@param on_content_fn fun(kzn_state: table, content: string, buf_id: integer, ns_id: integer, extmark_id: integer, opts)
----@param before_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
----@param after_request_fn fun(kzn_state: table, curl_data: table, buf_id: integer, ns_id: integer, extmark_id: integer, opts: table)
+---@param on_content_fn fun(kzn_state: table, content: string, opts)
+---@param before_request_fn fun(kzn_state: table, curl_data: table, opts: table)
+---@param after_request_fn fun(kzn_state: table, curl_data: table, opts: table)
 ---@param opts { stop_dir: Path?, context_dir_id: string?, data_params: table, prefill: boolean, prompt: string }
 function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn, make_job_fn, on_response_fn, on_content_fn, before_request_fn, after_request_fn, opts)
   local KZN_STATE = {
@@ -38,9 +36,6 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
     prefill = nil,
 
     origin_buf_id = nil,
-    stream_buf_id = nil,
-    ns_id = nil,
-    stream_extmark_id = nil,
 
     curl_args = nil,
     curl_data = nil,
@@ -48,12 +43,9 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
 
   api.nvim_clear_autocmds { group = group }
 
-  local active_job
-
   kznllm.get_user_input(function(input)
     KZN_STATE.origin_buf_id = api.nvim_win_get_buf(0)
     KZN_STATE.user_query = input
-    KZN_STATE.ns_id = api.nvim_create_namespace 'kznllm_ns'
 
     local context_dir = kznllm.find_context_directory(opts)
     KZN_STATE.context_files = {}
@@ -64,88 +56,49 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
 
     local buf_filetype, buf_path, buf_context, visual_selection = get_current_file_fn(KZN_STATE, opts)
 
-    KZN_STATE.visual_selection = visual_selection
     KZN_STATE.current_buffer_filetype = buf_filetype
     KZN_STATE.current_buffer_path = buf_path
     KZN_STATE.current_buffer_context = buf_context
+    KZN_STATE.visual_selection = visual_selection
 
     KZN_STATE.prefill = opts.prefill
-
-    -- TODO: move this to an injectable function
-    local _, srow, scol, _, _ = kznllm.get_visual_selection(opts)
-
-    KZN_STATE.stream_buf_id = KZN_STATE.origin_buf_id
-    KZN_STATE.stream_extmark_id = api.nvim_buf_set_extmark(KZN_STATE.stream_buf_id, KZN_STATE.ns_id, srow, scol, { strict = false })
 
     KZN_STATE.curl_data = make_curl_data_fn(KZN_STATE, opts) or {}
     KZN_STATE.curl_args = make_curl_args_fn(KZN_STATE, KZN_STATE.curl_data, opts) or {}
 
-    -- open up scratch buffer before setting extmark
-    if before_request_fn then
-      local new_state = before_request_fn(
-        KZN_STATE,
-        KZN_STATE.curl_data,
-        KZN_STATE.stream_buf_id,
-        KZN_STATE.ns_id,
-        KZN_STATE.stream_extmark_id,
-        opts
-      )
-      if new_state then
-        KZN_STATE = vim.tbl_extend('force', KZN_STATE, new_state)
-      end
-    end
-
-    -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
-    kznllm.noop(
-      KZN_STATE.stream_buf_id,
-      KZN_STATE.ns_id,
-      KZN_STATE.stream_extmark_id
-    )
-
     if make_job_fn then
-      active_job = make_job_fn(
+      local active_job = make_job_fn(
         KZN_STATE,
         KZN_STATE.curl_args,
+        function ()
+          if before_request_fn then
+            local new_state = before_request_fn(
+              KZN_STATE,
+              KZN_STATE.curl_data,
+              opts
+            )
+            if new_state then
+              KZN_STATE = vim.tbl_extend('force', KZN_STATE, new_state)
+            end
+          end
+        end,
         function (line)
           return on_response_fn(KZN_STATE, line, opts)
         end,
         function (content)
-          return on_content_fn(KZN_STATE, content, KZN_STATE.stream_buf_id, KZN_STATE.ns_id, KZN_STATE.stream_extmark_id, opts)
+          return on_content_fn(KZN_STATE, content, opts)
         end,
-        function (message)
+        function (_, _)
           if after_request_fn then
             after_request_fn(
               KZN_STATE,
               KZN_STATE.curl_args,
-              KZN_STATE.stream_buf_id,
-              KZN_STATE.ns_id,
-              KZN_STATE.stream_extmark_id,
               opts
             )
           end
         end,
         opts
       )
-
-      api.nvim_create_autocmd('User', {
-        group = group,
-        pattern = 'LLM_Escape',
-        callback = function()
-          if active_job.is_shutdown ~= true then
-            active_job:shutdown()
-            print 'LLM streaming cancelled'
-          end
-        end,
-      })
-
-      api.nvim_buf_set_keymap(KZN_STATE.stream_buf_id, 'n', '<Esc>', '', {
-        noremap = true,
-        silent = true,
-        callback = function()
-          api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
-          api.nvim_buf_del_keymap(KZN_STATE.stream_buf_id, 'n', '<Esc>')
-        end,
-      })
 
       active_job:start()
     end
@@ -166,13 +119,13 @@ function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn,
       error('Invalid spec type. Expected table or string.')
     end
 
-    local default_opts = {}
-    if preset.id then
-      default_opts.prompt = preset.id
-    end
 
+    local default_opts = {}
+    default_opts = vim.tbl_extend('force', default_opts, spec.opts or {})
+    default_opts.prompt = preset.id
     local merged_opts = vim.tbl_extend('force', default_opts, preset.opts or {})
     merged_opts = vim.tbl_extend('force', merged_opts, opts or {})
+
 
     return M._invoke_llm(
       spec.get_current_file,

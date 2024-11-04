@@ -87,15 +87,16 @@ function M.make_curl_data(kzn_state, opts)
   return data
 end
 
-function debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
-  if opts and opts.debug then
-    vim.print("[kznllm] debugging")
-  else
-    return
-  end
+---@param kzn_state table
+---@param curl_data table
+---@param opts table
+---@return integer, integer
+local function debug_fn(kzn_state, curl_data, opts)
+  vim.print("[kznllm] debugging")
 
-  buf_id = kznllm.make_scratch_buffer()
-  extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
+  local buf_id = kznllm.make_scratch_buffer()
+  local ns_id = api.nvim_create_namespace 'kznllm_ns'
+  local extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
 
   kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
   kznllm.write_content_at_extmark('\n\n---\n\n', buf_id, ns_id, extmark_id)
@@ -103,6 +104,7 @@ function debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
   kznllm.write_content_at_extmark('system' .. ':\n\n', buf_id, ns_id, extmark_id)
   kznllm.write_content_at_extmark(curl_data.system, buf_id, ns_id, extmark_id)
   kznllm.write_content_at_extmark('\n\n---\n\n', buf_id, ns_id, extmark_id)
+
   for _, message in ipairs(curl_data.messages) do
     kznllm.write_content_at_extmark(message.role .. ':\n\n', buf_id, ns_id, extmark_id)
     kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
@@ -111,15 +113,7 @@ function debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
   vim.cmd 'normal! G'
   vim.cmd 'normal! zz'
 
-  return {stream_buf_id = buf_id, stream_extmark_id = extmark_id}
-end
-
-function M.before_request(...)
-  return debug_fn(...)
-end
-
-function M.after_request(kzn_state, curl_args, stream_buf_id, ns_id, stream_extmark_id, opts)
-  vim.api.nvim_buf_del_extmark(stream_buf_id, ns_id, stream_extmark_id)
+  return buf_id, extmark_id
 end
 
 --- Anthropic SSE Specification
@@ -185,16 +179,25 @@ end
 
 ---@param kzn_state table
 ---@param content string
----@param buf_id integer
----@param ns_id integer
----@param extmark_id integer
 ---@param opts table
-function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
-  kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
+function M.on_content(kzn_state, content, opts)
+  kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+end
+
+function M.before_request(...)
+  return shared.before_request(...)
 end
 
 function M.make_job(...)
   return shared.make_job(...)
 end
+
+function M.after_request(...)
+  return shared.after_request(...)
+end
+
+M.opts = {
+  debug_fn = debug_fn
+}
 
 return M

@@ -88,38 +88,6 @@ function M.make_curl_data(kzn_state, opts)
   return data
 end
 
-local function debug_fn(kzn_state, curl_data, buf_id, ns_id, extmark_id, opts)
-  if opts and opts.debug then
-    vim.print("[kznllm] debugging")
-  else
-    return
-  end
-
-  buf_id = kznllm.make_scratch_buffer()
-  extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
-
-  kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
-  for _, message in ipairs(curl_data.messages) do
-    kznllm.write_content_at_extmark('\n\n============ ' .. message.role .. ' message: ============ \n\n', buf_id, ns_id, extmark_id)
-    kznllm.write_content_at_extmark(message.content, buf_id, ns_id, extmark_id)
-  end
-  if not (kzn_state.replace and opts.prefill) then
-    kznllm.write_content_at_extmark('\n\n============n\n', buf_id, ns_id, extmark_id)
-  end
-  vim.cmd 'normal! G'
-  vim.cmd 'normal! zz'
-
-  return {stream_buf_id = buf_id, stream_extmark_id = extmark_id}
-end
-
-function M.before_request(...)
-  return debug_fn(...)
-end
-
-function M.after_request(kzn_state, curl_args, stream_buf_id, ns_id, stream_extmark_id, opts)
-  vim.api.nvim_buf_del_extmark(stream_buf_id, ns_id, stream_extmark_id)
-end
-
 --- Process server-sent events based on OpenAI spec
 --- [See Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream)
 ---
@@ -145,17 +113,21 @@ end
 
 ---@param kzn_state table
 ---@param content string
----@param buf_id integer
----@param ns_id integer
----@param extmark_id integer
 ---@param opts table
-function M.on_content(kzn_state, content, buf_id, ns_id, extmark_id, opts)
-  kznllm.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
+function M.on_content(kzn_state, content, opts)
+  kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
 end
 
+function M.before_request(...)
+  return shared.before_request(...)
+end
 
 function M.make_job(...)
   return shared.make_job(...)
+end
+
+function M.after_request(...)
+  return shared.after_request(...)
 end
 
 return M
