@@ -2,8 +2,12 @@ local M = {}
 
 local kznllm = require 'kznllm'
 local Job = require 'plenary.job'
+local Path = require 'plenary.path'
 local api = vim.api
 local group = vim.api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
+
+local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
+local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 
 function M.get_current_file(kzn_state, opts)
   local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
@@ -28,6 +32,16 @@ function M.get_current_file(kzn_state, opts)
   buf_context = table.concat(buf_lines, "\n")
 
   return buf_filetype, buf_path, buf_context, visual_selection
+end
+
+---@param template_name string
+---@param opts table
+---@return Path
+function M.get_template_path(template_name, opts)
+  local template_directory = Path:new(opts.template_directory or TEMPLATE_DIRECTORY)
+  local template_scope = Path:new(opts.template_scope or 'base')
+
+  return (template_directory / template_scope / template_name)
 end
 
 local function debug_fn(kzn_state, curl_data, opts)

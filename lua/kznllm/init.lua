@@ -115,7 +115,7 @@ function M.get_visual_selection(opts)
   if srow > erow or (srow == erow and scol > ecol) then
     srow, erow, scol, ecol = erow, srow, ecol, scol
   end
-  
+
   if mode == 'V' or mode == '\22' then
     -- in visual block and visual line mode, we expect first column of srow and last column of erow
     local erow_content = vim.api.nvim_buf_get_lines(0, erow, erow + 1, false)[1]

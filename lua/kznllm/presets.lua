@@ -3,7 +3,6 @@
 -- Your lazy config still wants to define the keymaps to make it work (see the main project README.md for recommended setup)
 --
 local kznllm = require 'kznllm'
----@class Path
 local Path = require 'plenary.path'
 local api = vim.api
 
@@ -178,6 +177,12 @@ function M.load(all_presets)
 
   local idx = vim.g.PRESET_IDX or 1
   return all_presets[idx]
+end
+
+function M.register_presets(custom_presets)
+  for _, preset in ipairs(custom_presets) do
+    table.insert(presets, preset)
+  end
 end
 
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)

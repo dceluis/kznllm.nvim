@@ -61,15 +61,15 @@ end
 function M.make_curl_data(kzn_state, opts)
   kzn_state.prefill = opts.prefill
 
-  local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
-  local template_scope = opts.template_scope or 'vllm'
+  local system_template = shared.get_template_path('system_prompt.xml.jinja', opts)
+  local user_template = shared.get_template_path('user_prompt.xml.jinja', opts)
 
   local data = {
-    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'system_prompt.xml.jinja', kzn_state),
+    system = kznllm.make_prompt_from_template(system_template, kzn_state),
     messages = {
       {
         role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'user_prompt.xml.jinja', kzn_state),
+        content = kznllm.make_prompt_from_template(user_template, kzn_state),
       },
     },
     model = opts.model,

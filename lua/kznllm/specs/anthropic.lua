@@ -10,12 +10,8 @@ Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
 local shared = require 'kznllm.specs.shared'
-local Path = require 'plenary.path'
 local api = vim.api
 local current_event_state = nil
-
-local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
-local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.
@@ -66,15 +62,15 @@ end
 function M.make_curl_data(kzn_state, opts)
   kzn_state.prefill = opts.prefill
 
-  local template_directory = opts.template_directory or TEMPLATE_DIRECTORY
-  local template_scope = opts.template_scope or 'anthropic'
+  local system_template = shared.get_template_path('system_prompt.xml.jinja', opts)
+  local user_template = shared.get_template_path('user_prompt.xml.jinja', opts)
 
   local data = {
-    system = kznllm.make_prompt_from_template(template_directory / template_scope / 'system_prompt.xml.jinja', kzn_state),
+    system = kznllm.make_prompt_from_template(system_template, kzn_state),
     messages = {
       {
         role = 'user',
-        content = kznllm.make_prompt_from_template(template_directory / template_scope / 'user_prompt.xml.jinja', kzn_state),
+        content = kznllm.make_prompt_from_template(user_template, kzn_state),
       },
     },
     model = opts.model,
@@ -195,7 +191,8 @@ function M.after_request(...)
 end
 
 M.opts = {
-  debug_fn = debug_fn
+  debug_fn = debug_fn,
+  template_scope = 'anthropic'
 }
 
 return M
