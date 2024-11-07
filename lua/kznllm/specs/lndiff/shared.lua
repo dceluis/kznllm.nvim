@@ -66,11 +66,12 @@ local function debug(kzn_state, curl_data, opts)
 end
 
 function M.before_request(kzn_state, curl_data, opts)
-  local stream_buf_id = kznllm.make_floating_buffer()
+  local stream_buf_id, stream_win_id = kznllm.make_floating_buffer()
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, 0, 0, {})
 
   kzn_state.stream_buf_id = stream_buf_id
+  kzn_state.stream_win_id = stream_win_id
   kzn_state.ns_id = ns_id
   kzn_state.stream_extmark_id = stream_extmark_id
 

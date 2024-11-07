@@ -35,6 +35,7 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
     prefill = nil,
 
     origin_buf_id = nil,
+    origin_win_id = nil,
 
     curl_args = nil,
     curl_data = nil,
@@ -42,6 +43,7 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
 
   kznllm.get_user_input(function(input)
     KZN_STATE.origin_buf_id = api.nvim_win_get_buf(0)
+    KZN_STATE.origin_win_id = api.nvim_get_current_win()
     KZN_STATE.user_query = input
 
     local context_dir = kznllm.find_context_directory(opts)

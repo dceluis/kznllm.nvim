@@ -55,21 +55,22 @@ function M.make_floating_buffer()
 
   -- Define the size of the floating window
   local width = 60
-  local height = 20
+  local height = 30
 
   -- Calculate the position for the floating window
   local win_opts = {
-      relative = 'editor',
-      width = width,
-      height = height,
-      col = (vim.o.columns - width) / 2,
-      row = (vim.o.lines - height) / 2,
-      anchor = 'NW',
-      style = 'minimal',
+    relative = 'editor',
+    width = width,
+    height = height,
+    col = (vim.o.columns - width),
+    row = (vim.o.lines - height),
+    anchor = 'NW',
+    style = 'minimal',
+    border = 'double',
   }
 
   -- Open the floating window
-  vim.api.nvim_open_win(buf_id, true, win_opts)
+  local win_id = vim.api.nvim_open_win(buf_id, true, win_opts)
 
   -- Set up key mapping to close the buffer
   api.nvim_buf_set_keymap(buf_id, 'n', 'q', '', {
@@ -80,7 +81,7 @@ function M.make_floating_buffer()
     end,
   })
 
-  return buf_id
+  return buf_id, win_id
 end
 
 ---Creates a buffer in markdown mode (for syntax highlighting)

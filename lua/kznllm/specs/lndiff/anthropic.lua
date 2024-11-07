@@ -178,6 +178,14 @@ function M.on_content(kzn_state, content, opts)
   kzn_state.response = kzn_state.response .. content
 
   kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+  if kzn_state.stream_win_id then
+    -- Get last line and its length in the buffer
+    local lines = vim.api.nvim_buf_get_lines(kzn_state.stream_buf_id, 0, -1, false)
+    local last_line = lines[#lines]
+    local last_row = #lines
+    local last_col = #last_line
+    vim.api.nvim_win_set_cursor(kzn_state.stream_win_id, {last_row, last_col})
+  end
 end
 
 function M.before_request(...)
@@ -204,9 +212,11 @@ function M.after_request(kzn_state, ...)
 
   if source_map then
     local buf_id = kzn_state.origin_buf_id
+    local win_id = kzn_state.origin_win_id
     local new_lines = kznllm.splitlines(source_map:as_content({apply=true}))
 
     vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
+    vim.api.nvim_win_set_cursor(win_id, { kzn_state.srow, kzn_state.scol })
   end
 
   return shared.after_request(kzn_state, ...)
