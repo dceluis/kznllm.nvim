@@ -81,13 +81,7 @@ function M.make_curl_data(kzn_state, opts)
   return data
 end
 
----@param kzn_state table
----@param curl_data table
----@param opts table
----@return integer, integer
-local function debug_fn(kzn_state, curl_data, opts)
-  vim.print("[kznllm] debugging")
-
+local function debug(kzn_state, curl_data, opts)
   local buf_id = kznllm.make_scratch_buffer()
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
@@ -107,7 +101,9 @@ local function debug_fn(kzn_state, curl_data, opts)
   vim.cmd 'normal! G'
   vim.cmd 'normal! zz'
 
-  return buf_id, extmark_id
+  kzn_state.stream_buf_id = buf_id
+  kzn_state.ns_id = ns_id
+  kzn_state.stream_extmark_id = extmark_id
 end
 
 --- Anthropic SSE Specification
@@ -191,8 +187,8 @@ function M.after_request(...)
 end
 
 M.opts = {
-  debug_fn = debug_fn,
-  template_scope = 'anthropic'
+  debug_fn = debug,
+  template_scope = 'anthropic',
 }
 
 return M

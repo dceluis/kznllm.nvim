@@ -67,14 +67,11 @@ function M._invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn
         KZN_STATE.curl_args,
         function ()
           if before_request_fn then
-            local new_state = before_request_fn(
+            before_request_fn(
               KZN_STATE,
               KZN_STATE.curl_data,
               opts
             )
-            if new_state then
-              KZN_STATE = vim.tbl_extend('force', KZN_STATE, new_state)
-            end
           end
         end,
         function (line)

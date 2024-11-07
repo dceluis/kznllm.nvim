@@ -168,11 +168,11 @@ function M.get_visual_selection(opts)
   if replace_mode then
     api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', false, true, true), 'nx', false)
     visual_selection = table.concat(api.nvim_buf_get_text(0, srow, scol, erow, ecol, {}), '\n')
-  end
 
-  local debug = opts and opts.debug
-  if not debug and replace_mode then
-    -- api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
+    local selection_replace = opts and opts.selection_replace
+    if selection_replace then
+      api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
+    end
   end
 
   return visual_selection, srow, scol, erow, ecol

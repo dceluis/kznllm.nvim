@@ -10,6 +10,11 @@ local TEMPLATE_DIRECTORY = kznllm.get_plugin_root() / 'templates'
 
 function M.get_current_file(kzn_state, opts)
   local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
+  kzn_state.visual_selection = visual_selection
+  kzn_state.srow = srow
+  kzn_state.scol = scol
+  kzn_state.erow = erow
+  kzn_state.ecol = ecol
 
   -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
   local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(kzn_state.origin_buf_id, opts)
@@ -41,7 +46,7 @@ function M.get_template_path(template_name, opts)
   return (template_directory / template_scope / template_name)
 end
 
-local function debug_fn(kzn_state, curl_data, opts)
+local function debug(kzn_state, curl_data, opts)
   local buf_id = kzn_state.stream_buf_id
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local extmark_id = kzn_state.stream_extmark_id
@@ -61,42 +66,39 @@ local function debug_fn(kzn_state, curl_data, opts)
 end
 
 function M.before_request(kzn_state, curl_data, opts)
-  local _, srow, scol, _, _ = kznllm.get_visual_selection(opts)
-
   local stream_buf_id = kznllm.make_floating_buffer()
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, 0, 0, {})
 
   kzn_state.stream_buf_id = stream_buf_id
+  kzn_state.ns_id = ns_id
   kzn_state.stream_extmark_id = stream_extmark_id
 
   if opts and opts.debug then
-    debug_fn = opts.debug_fn or debug_fn
+    local debug_fn = opts.debug_fn or debug
     debug_fn(kzn_state, curl_data, opts)
   end
 
   -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
-  kznllm.noop(stream_buf_id, ns_id, stream_extmark_id)
+  kznllm.noop(kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
 
-  api.nvim_buf_set_keymap(stream_buf_id, 'n', '<Esc>', '', {
+  api.nvim_buf_set_keymap(kzn_state.stream_buf_id, 'n', '<Esc>', '', {
     noremap = true,
     silent = true,
     callback = function()
       api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
-      api.nvim_buf_del_keymap(stream_buf_id, 'n', '<Esc>')
+      api.nvim_buf_del_keymap(kzn_state.stream_buf_id, 'n', '<Esc>')
     end,
   })
 
-  api.nvim_buf_set_keymap(stream_buf_id, 'n', 'u', '', {
+  api.nvim_buf_set_keymap(kzn_state.stream_buf_id, 'n', 'u', '', {
     noremap = true,
     silent = true,
     callback = function()
       api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
-      api.nvim_buf_del_keymap(stream_buf_id, 'n', 'u')
+      api.nvim_buf_del_keymap(kzn_state.stream_buf_id, 'n', 'u')
     end,
   })
-
-  return {stream_extmark_id = stream_extmark_id, ns_id = ns_id, stream_buf_id = stream_buf_id}
 end
 
 function M.after_request(kzn_state, curl_args, opts)

@@ -88,7 +88,7 @@ end
 ---@param curl_data table
 ---@param opts table
 ---@return integer, integer
-local function debug_fn(kzn_state, curl_data, opts)
+local function debug(kzn_state, curl_data, opts)
   local buf_id = kzn_state.stream_buf_id
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local extmark_id = kzn_state.stream_extmark_id
@@ -213,7 +213,7 @@ function M.after_request(kzn_state, ...)
 end
 
 M.opts = {
-  debug_fn = debug_fn,
+  debug_fn = debug,
   template_scope = 'lndiff/anthropic'
 }
 
