@@ -50,6 +50,39 @@ function M.write_content_at_extmark(content, buf_id, ns_id, extmark_id)
   api.nvim_buf_set_text(buf_id, mrow, mcol, mrow, mcol, lines)
 end
 
+function M.make_floating_buffer()
+  local buf_id = api.nvim_create_buf(false, true)
+
+  -- Define the size of the floating window
+  local width = 60
+  local height = 20
+
+  -- Calculate the position for the floating window
+  local win_opts = {
+      relative = 'editor',
+      width = width,
+      height = height,
+      col = (vim.o.columns - width) / 2,
+      row = (vim.o.lines - height) / 2,
+      anchor = 'NW',
+      style = 'minimal',
+  }
+
+  -- Open the floating window
+  vim.api.nvim_open_win(buf_id, true, win_opts)
+
+  -- Set up key mapping to close the buffer
+  api.nvim_buf_set_keymap(buf_id, 'n', 'q', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      api.nvim_buf_delete(buf_id, { force = true })
+    end,
+  })
+
+  return buf_id
+end
+
 ---Creates a buffer in markdown mode (for syntax highlighting)
 function M.make_scratch_buffer()
   local buf_id = api.nvim_create_buf(false, true)
@@ -69,7 +102,6 @@ function M.make_scratch_buffer()
     noremap = true,
     silent = true,
     callback = function()
-      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
       api.nvim_buf_delete(buf_id, { force = true })
     end,
   })
@@ -140,7 +172,7 @@ function M.get_visual_selection(opts)
 
   local debug = opts and opts.debug
   if not debug and replace_mode then
-    api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
+    -- api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
   end
 
   return visual_selection, srow, scol, erow, ecol
@@ -230,6 +262,39 @@ function M.noop(buf_id, ns_id, extmark_id)
   local extmark = api.nvim_buf_get_extmark_by_id(buf_id, ns_id, extmark_id, { details = false })
   local mrow, mcol = extmark[1], extmark[2]
   api.nvim_buf_set_text(buf_id, mrow, mcol, mrow, mcol, {})
+end
+
+---@return Path?
+function M.get_plugin_root()
+  local source_filename = debug.getinfo(1, "S").source:sub(2)  -- Remove "@" prefix from source path
+  local path = Path:new(source_filename)
+
+  while path:parent() do
+    path = path:parent()
+    -- Assuming 'lua' folder indicates the root directory
+    if path:joinpath("lua"):is_dir() then
+      return path
+    end
+  end
+end
+
+--function to splitlines, similar to python's
+function M.splitlines(content, keepends)
+  keepends = keepends or false
+
+  local lines = {}
+
+  local pattern = keepends and ".-\n" or "(.-)\n"
+
+  for line in content:gmatch(pattern) do
+    table.insert(lines, line)
+  end
+  local line = content:match("[^\n]+$")
+  if line then
+    table.insert(lines, line)
+  end
+
+  return lines
 end
 
 return M

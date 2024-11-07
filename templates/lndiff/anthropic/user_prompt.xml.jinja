@@ -1,0 +1,41 @@
+{% if context_files %}
+<documents>
+{% for file in context_files %}
+  <document index="{{loop.index}}">
+    <filename>{{file.path}}</filename>
+    <source>
+{{ file.content }}
+    </source>
+  </document>
+{% endfor %}
+</documents>
+{% endif %}
+
+<document current>
+{% if current_buffer_path %}
+  <filename>{{current_buffer_path}}</filename>
+{% endif %}
+{% if current_buffer_context %}
+  <source filetype="{{current_buffer_filetype}}">
+{{ current_buffer_context }}
+  </source>
+{% endif %}
+{% if visual_selection %}
+  <selection>
+{{visual_selection}}
+  </selection>
+{% endif %}
+</document>
+
+<description>
+{% if visual_selection %}
+You have been given the selected code in the current file.
+
+Your task is to follow the user instruction to replace the selected code.
+{% else %}
+Your task is to follow the user instruction to create content to be inserted
+into the position marked with <CURSOR_POS>.
+{% endif %}
+</description>
+
+<instruction>{{user_query}}</instruction>

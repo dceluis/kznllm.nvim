@@ -114,13 +114,11 @@ function M.invoke_llm(get_current_file_fn, make_curl_data_fn, make_curl_args_fn,
       error('Invalid spec type. Expected table or string.')
     end
 
-
     local default_opts = {}
+    default_opts = vim.tbl_extend('force', default_opts, {prompt = preset.id, template_scope = preset.spec})
     default_opts = vim.tbl_extend('force', default_opts, spec.opts or {})
-    default_opts.prompt = preset.id
     local merged_opts = vim.tbl_extend('force', default_opts, preset.opts or {})
     merged_opts = vim.tbl_extend('force', merged_opts, opts or {})
-
 
     return M._invoke_llm(
       spec.get_current_file,

@@ -10,11 +10,6 @@ Load somewhere safely from config `export %s=<api_key>`]]
 
 local kznllm = require 'kznllm'
 local shared = require 'kznllm.specs.shared'
-local Path = require 'plenary.path'
-local api = vim.api
-
-local plugin_dir = Path:new(debug.getinfo(1, 'S').source:sub(2)):parents()[4]
-local TEMPLATE_DIRECTORY = Path:new(plugin_dir) / 'templates'
 
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.

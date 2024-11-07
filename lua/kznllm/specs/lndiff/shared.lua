@@ -14,21 +14,19 @@ function M.get_current_file(kzn_state, opts)
   -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
   local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(kzn_state.origin_buf_id, opts)
 
-  local cursor_pos = "<CURSOR_POS>"
-  local cursor_end = "<CURSOR_END>"
+  local numbered_lines
   local buf_lines = vim.split(buf_context, "\n")
-  local new_line = buf_lines[srow+1]:sub(1, scol) .. cursor_pos .. buf_lines[srow+1]:sub(scol + 1)
-  buf_lines[srow + 1] = new_line
-  if visual_selection then
-    local epos = ecol
-    if srow == erow then
-      epos = epos + #cursor_pos
-    end
 
-    new_line = buf_lines[erow+1]:sub(1, epos) .. cursor_end .. buf_lines[erow+1]:sub(epos + 1)
-    buf_lines[erow + 1] = new_line
+  numbered_lines = {}
+  for i, line in ipairs(buf_lines) do
+    table.insert(numbered_lines, string.format("%02d│%s", i, line))
   end
-  buf_context = table.concat(buf_lines, "\n")
+
+  buf_context = table.concat(numbered_lines, "\n")
+
+  local selection_lines = {unpack(numbered_lines, srow + 1, erow + 1)}
+
+  visual_selection = table.concat(selection_lines, "\n")
 
   return buf_filetype, buf_path, buf_context, visual_selection
 end
@@ -44,11 +42,9 @@ function M.get_template_path(template_name, opts)
 end
 
 local function debug_fn(kzn_state, curl_data, opts)
-  vim.print("[kznllm] debugging")
-
-  local buf_id = kznllm.make_scratch_buffer()
+  local buf_id = kzn_state.stream_buf_id
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
-  local extmark_id = api.nvim_buf_set_extmark(buf_id, ns_id, 0, 0, {})
+  local extmark_id = kzn_state.stream_extmark_id
 
   kznllm.write_content_at_extmark('model: ' .. opts.model, buf_id, ns_id, extmark_id)
 
@@ -62,20 +58,21 @@ local function debug_fn(kzn_state, curl_data, opts)
   end
   vim.cmd 'normal! G'
   vim.cmd 'normal! zz'
-
-  return buf_id, extmark_id
 end
 
 function M.before_request(kzn_state, curl_data, opts)
   local _, srow, scol, _, _ = kznllm.get_visual_selection(opts)
 
-  local stream_buf_id = kzn_state.origin_buf_id
+  local stream_buf_id = kznllm.make_floating_buffer()
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
-  local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, srow, scol, { strict = false })
+  local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, 0, 0, {})
+
+  kzn_state.stream_buf_id = stream_buf_id
+  kzn_state.stream_extmark_id = stream_extmark_id
 
   if opts and opts.debug then
     debug_fn = opts.debug_fn or debug_fn
-    stream_buf_id, stream_extmark_id = debug_fn(kzn_state, curl_data, opts)
+    debug_fn(kzn_state, curl_data, opts)
   end
 
   -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
