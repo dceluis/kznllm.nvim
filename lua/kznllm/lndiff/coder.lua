@@ -30,12 +30,10 @@ end
 --- Find original and update blocks in a given content
 ---@param content string The text content to parse
 ---@param fence? table Optional fence markers
----@param valid_fnames? table Optional list of valid filenames
 ---@return function Iterator function that yields filename, original text, and updated text
-function Coder.find_editblocks(content, fence, valid_fnames)
+function Coder.find_edits(content, fence)
   content = content or ''
   fence = fence or default_fence
-  valid_fnames = valid_fnames or {}
 
   local i = 1
   local current_filename = nil
@@ -103,73 +101,64 @@ function Coder.find_editblocks(content, fence, valid_fnames)
 end
 
 --- Apply edit blocks to files
+---@param content_map table The content_map to apply edits to
 ---@param edits table A list of edit blocks to apply
----@return table A table of successfully applied and failed edits
-function Coder.apply_editblocks(edits)
+---@return table Content map after applying edits
+---@return table List of successfully applied edit blocks
+---@return table List of failed edit blocks
+---@return string Error message (if any)
+function Coder.apply_edits(content_map, edits)
+  content_map = content_map or ContentMap.new()
+  edits = edits or {}
+
   local failed = {}
   local passed = {}
-  local content_maps = {}
-  local editblocks = {}
 
   for _, edit in ipairs(edits) do
     local full_path, removed, replaced = unpack(edit)
-
-    -- Read file content
-    local content = Path:new(full_path):read()
-    local content_map = content_maps[full_path]
-
-    if not content_map then
-      content_map = ContentMap.new(content)
-    end
 
     -- Create maps for removed and replaced content
     local removed_map = ContentMap.new(removed, "force")
     local replaced_map = ContentMap.new(replaced)
 
     -- Create EditBlock
-    local editblock = EditBlock.new(content_map, removed_map, replaced_map)
+    local editblock = EditBlock.new(full_path, content_map, removed_map, replaced_map)
 
     -- Check if block already applied
     if content_map:editblock_applied(editblock) then
-      table.insert(passed, edit)
+      table.insert(passed, editblock)
     else
       -- Attempt to apply the edit block
       local success, new_content_map, new_editblock = Coder.do_replace(content_map, editblock)
 
       if success then
         content_map = new_content_map
-        table.insert(passed, edit)
+        table.insert(passed, editblock)
       else
         editblock = new_editblock
-        table.insert(failed, edit)
+        table.insert(failed, editblock)
       end
     end
-
-    content_maps[full_path] = content_map
-    editblocks[full_path] = editblock
   end
 
-  local res = ''
+  local error_msg = ''
   -- Prepare error report if there are failed edits
   if #failed > 0 then
-    res = string.format("# %d *edit blocks* failed to match!\n", #failed)
+    error_msg = string.format("# %d *edit blocks* failed to match!\n", #failed)
 
-    for _, edit in ipairs(failed) do
-      local full_path = unpack(edit)
-      local editblock = editblocks[full_path]
-
-      res = res .. string.format("## EditblockNoExactMatch: This *editblock* failed to exactly match lines in %s\n", full_path)
-      res = res .. editblock:as_content({numbered = true, mismatch = true})
+    for _, editblock in ipairs(failed) do
+      error_msg = error_msg .. string.format("## EditblockNoExactMatch: This *editblock* failed to exactly match lines in %s\n", editblock._path)
+      error_msg = error_msg .. editblock:as_content({numbered = true, mismatch = true})
     end
 
     if #passed > 0 then
-      res = res .. string.format("\n# The other %d *editblocks* were applied successfully.", #passed)
+      error_msg = error_msg .. string.format("\n# The other %d *editblocks* were applied successfully.", #passed)
     end
 
-    res = res .. "Reply with new *editblocks* based off the latest code version.\n"
+    error_msg = error_msg .. "Reply with new *editblocks* based off the latest code version.\n"
   end
 
-  return {content_maps = content_maps, passed = passed, failed = failed, error = res}
+  return content_map, passed, failed, error_msg
 end
 
 --- Attempt to replace content in a file with numbered line matching
@@ -226,7 +215,7 @@ function Coder.do_replace(content_map, editblock)
         offset_remove_map:set(num + offset, line)
       end
 
-      local offset_editblock = EditBlock.new(
+      local offset_editblock = EditBlock.new(editblock._path,
         whole_map_copy, offset_remove_map, insert_map
       )
       offset_editblock:mismatch(editblock:mismatch())

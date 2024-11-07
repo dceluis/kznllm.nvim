@@ -11,6 +11,7 @@ Load somewhere safely from config `export %s=<api_key>`]]
 local kznllm = require 'kznllm'
 local shared = require 'kznllm.specs.lndiff.shared'
 local Coder = require 'kznllm.lndiff.coder'
+local ContentMap = require 'kznllm.lndiff.content_map'
 local api = vim.api
 local current_event_state = nil
 
@@ -196,18 +197,17 @@ end
 function M.after_request(kzn_state, ...)
   local content = kzn_state.response
 
-  -- if content then
-    local editblocks = {}
+  if content then
+    local edits = {}
 
-    for filename, removed, inserted in Coder.find_editblocks(content) do
-      table.insert(editblocks, {filename, removed, inserted})
+    for filename, removed, inserted in Coder.find_edits(content) do
+      edits[filename] = edits[filename] or {}
+      table.insert(edits[filename], {filename, removed, inserted})
     end
 
-    local applied = Coder.apply_editblocks(editblocks)
-    local content_maps = applied.content_maps
-
-    -- only take the content_map for the current file. not using all because needs more ui changes
-    local source_map = content_maps[kzn_state.current_buffer_path]
+    local source_map = ContentMap.new(kzn_state.current_buffer_context, true)
+    local source_edits = edits[kzn_state.current_buffer_path]
+    source_map, _, _, _ = Coder.apply_edits(source_map, source_edits)
 
     if source_map then
       local buf_id = kzn_state.origin_buf_id
@@ -216,12 +216,15 @@ function M.after_request(kzn_state, ...)
       local last_line = new_lines[#new_lines]
       local srow = math.min(#new_lines, kzn_state.srow)
       local scol = math.min(#last_line, kzn_state.scol)
-      vim.print('#new_lines='..#new_lines..' srow='..kzn_state.srow)
 
-      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
-      vim.api.nvim_win_set_cursor(win_id, { srow, scol })
+      if vim.api.nvim_buf_is_valid(buf_id) then
+        vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
+      end
+      if vim.api.nvim_win_is_valid(win_id) then
+        vim.api.nvim_win_set_cursor(win_id, { srow, scol })
+      end
     end
-  -- end
+  end
 
   return shared.after_request(kzn_state, ...)
 end

@@ -1,9 +1,10 @@
 local EditBlock = {}
 EditBlock.__index = EditBlock
 
-function EditBlock.new(source_map, remove_map, insert_map)
+function EditBlock.new(path, source_map, remove_map, insert_map)
     local self = setmetatable({}, EditBlock)
 
+    self._path = path
     self._source_map = source_map
     self._remove_map = remove_map
     self._insert_map = insert_map
