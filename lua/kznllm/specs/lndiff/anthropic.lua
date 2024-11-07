@@ -11,8 +11,6 @@ Load somewhere safely from config `export %s=<api_key>`]]
 local kznllm = require 'kznllm'
 local shared = require 'kznllm.specs.lndiff.shared'
 local Coder = require 'kznllm.lndiff.coder'
-local ContentMap = require 'kznllm.lndiff.content_map'
-local EditBlock = require 'kznllm.lndiff.edit_block'
 local api = vim.api
 local current_event_state = nil
 
@@ -87,7 +85,6 @@ end
 ---@param kzn_state table
 ---@param curl_data table
 ---@param opts table
----@return integer, integer
 local function debug(kzn_state, curl_data, opts)
   local buf_id = kzn_state.stream_buf_id
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
@@ -198,26 +195,33 @@ end
 
 function M.after_request(kzn_state, ...)
   local content = kzn_state.response
-  local editblocks = {}
 
-  for filename, removed, inserted in Coder.find_editblocks(content) do
-    table.insert(editblocks, {filename, removed, inserted})
-  end
+  -- if content then
+    local editblocks = {}
 
-  local applied = Coder.apply_editblocks(editblocks)
-  local content_maps = applied.content_maps
+    for filename, removed, inserted in Coder.find_editblocks(content) do
+      table.insert(editblocks, {filename, removed, inserted})
+    end
 
-  -- only take the content_map for the current file. not using all because needs more ui changes
-  local source_map = content_maps[kzn_state.current_buffer_path]
+    local applied = Coder.apply_editblocks(editblocks)
+    local content_maps = applied.content_maps
 
-  if source_map then
-    local buf_id = kzn_state.origin_buf_id
-    local win_id = kzn_state.origin_win_id
-    local new_lines = kznllm.splitlines(source_map:as_content({apply=true}))
+    -- only take the content_map for the current file. not using all because needs more ui changes
+    local source_map = content_maps[kzn_state.current_buffer_path]
 
-    vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
-    vim.api.nvim_win_set_cursor(win_id, { kzn_state.srow, kzn_state.scol })
-  end
+    if source_map then
+      local buf_id = kzn_state.origin_buf_id
+      local win_id = kzn_state.origin_win_id
+      local new_lines = kznllm.splitlines(source_map:as_content({apply=true}))
+      local last_line = new_lines[#new_lines]
+      local srow = math.min(#new_lines, kzn_state.srow)
+      local scol = math.min(#last_line, kzn_state.scol)
+      vim.print('#new_lines='..#new_lines..' srow='..kzn_state.srow)
+
+      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
+      vim.api.nvim_win_set_cursor(win_id, { srow, scol })
+    end
+  -- end
 
   return shared.after_request(kzn_state, ...)
 end

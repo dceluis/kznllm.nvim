@@ -33,6 +33,7 @@ end
 ---@param valid_fnames? table Optional list of valid filenames
 ---@return function Iterator function that yields filename, original text, and updated text
 function Coder.find_editblocks(content, fence, valid_fnames)
+  content = content or ''
   fence = fence or default_fence
   valid_fnames = valid_fnames or {}
 

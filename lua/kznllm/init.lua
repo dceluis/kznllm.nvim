@@ -66,7 +66,7 @@ function M.make_floating_buffer()
     row = (vim.o.lines - height),
     anchor = 'NW',
     style = 'minimal',
-    border = 'double',
+    border = 'rounded',
   }
 
   -- Open the floating window
@@ -74,9 +74,10 @@ function M.make_floating_buffer()
 
   -- Set up key mapping to close the buffer
   api.nvim_buf_set_keymap(buf_id, 'n', 'q', '', {
-    noremap = true,
+    noremap = false,
     silent = true,
     callback = function()
+      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
       api.nvim_buf_delete(buf_id, { force = true })
     end,
   })
@@ -103,6 +104,7 @@ function M.make_scratch_buffer()
     noremap = true,
     silent = true,
     callback = function()
+      api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
       api.nvim_buf_delete(buf_id, { force = true })
     end,
   })

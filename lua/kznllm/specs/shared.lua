@@ -94,7 +94,7 @@ function M.before_request(kzn_state, curl_data, opts)
   kznllm.noop(kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
 
   api.nvim_buf_set_keymap(kzn_state.stream_buf_id, 'n', '<Esc>', '', {
-    noremap = true,
+    noremap = false,
     silent = true,
     callback = function()
       api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
@@ -103,7 +103,7 @@ function M.before_request(kzn_state, curl_data, opts)
   })
 
   api.nvim_buf_set_keymap(kzn_state.stream_buf_id, 'n', 'u', '', {
-    noremap = true,
+    noremap = false,
     silent = true,
     callback = function()
       api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
@@ -113,7 +113,9 @@ function M.before_request(kzn_state, curl_data, opts)
 end
 
 function M.after_request(kzn_state, curl_args, opts)
-  vim.api.nvim_buf_del_extmark(kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+  if vim.api.nvim_buf_is_valid(kzn_state.stream_buf_id) then
+    vim.api.nvim_buf_del_extmark(kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+  end
 end
 
 ---@param kzn_state table
