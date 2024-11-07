@@ -9,17 +9,7 @@ local group = vim.api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 local TEMPLATE_DIRECTORY = kznllm.get_plugin_root() / 'templates'
 
 function M.get_current_file(kzn_state, opts)
-  local temp_opts = opts
-  if opts then
-    temp_opts = vim.tbl_extend('keep', opts, {selection_replace=(not opts.debug)})
-  end
-
-  local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(temp_opts)
-  kzn_state.visual_selection = visual_selection
-  kzn_state.srow = srow
-  kzn_state.scol = scol
-  kzn_state.erow = erow
-  kzn_state.ecol = ecol
+  local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
 
   -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
   local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(kzn_state.origin_buf_id, opts)
@@ -77,17 +67,30 @@ local function debug(kzn_state, curl_data, opts)
 end
 
 function M.before_request(kzn_state, curl_data, opts)
+  local _, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
   local stream_buf_id = kzn_state.origin_buf_id
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
-  local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, kzn_state.srow, kzn_state.scol, { strict = false })
+  local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, srow, scol, { strict = false })
 
   kzn_state.stream_buf_id = stream_buf_id
   kzn_state.ns_id = ns_id
   kzn_state.stream_extmark_id = stream_extmark_id
 
-  if opts and opts.debug then
-    local debug_fn = opts.debug_fn or debug
-    debug_fn(kzn_state, curl_data, opts)
+  if opts then
+    if opts.selection_replace == nil then
+      opts.selection_replace = (not opts.debug)
+    end
+
+    if opts.debug then
+      local debug_fn = opts.debug_fn or debug
+      debug_fn(kzn_state, curl_data, opts)
+    end
+
+    local selection_replace = opts.selection_replace
+    if selection_replace then
+      api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', false, true, true), 'nx', false)
+      api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
+    end
   end
 
   -- Make a no-op change to the buffer at the specified extmark to avoid calling undojoin after undo
@@ -110,6 +113,15 @@ function M.before_request(kzn_state, curl_data, opts)
       api.nvim_buf_del_keymap(kzn_state.stream_buf_id, 'n', 'u')
     end,
   })
+end
+
+---@param kzn_state table
+---@param content string
+---@param opts table
+function M.on_content(kzn_state, content, opts)
+  if vim.api.nvim_buf_is_valid(kzn_state.stream_buf_id) then
+    kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+  end
 end
 
 function M.after_request(kzn_state, curl_args, opts)

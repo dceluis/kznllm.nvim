@@ -9,12 +9,7 @@ local group = vim.api.nvim_create_augroup('LLM_AutoGroup', { clear = true })
 local TEMPLATE_DIRECTORY = kznllm.get_plugin_root() / 'templates'
 
 function M.get_current_file(kzn_state, opts)
-  local visual_selection, srow, scol, erow, ecol = kznllm.get_visual_selection(opts)
-  kzn_state.visual_selection = visual_selection
-  kzn_state.srow = srow
-  kzn_state.scol = scol
-  kzn_state.erow = erow
-  kzn_state.ecol = ecol
+  local visual_selection, srow, _, erow, _ = kznllm.get_visual_selection(opts)
 
   -- similar to rendering a template, but we want to get the context of the file without relying on the changes being saved
   local buf_filetype, buf_path, buf_context = kznllm.get_buffer_context(kzn_state.origin_buf_id, opts)
@@ -66,6 +61,7 @@ local function debug(kzn_state, curl_data, opts)
 end
 
 function M.before_request(kzn_state, curl_data, opts)
+  _, kzn_state.srow, kzn_state.scol, kzn_state.erow, kzn_state.ecol = kznllm.get_visual_selection(opts)
   local stream_buf_id, stream_win_id = kznllm.make_floating_buffer()
   local ns_id = api.nvim_create_namespace 'kznllm_ns'
   local stream_extmark_id = api.nvim_buf_set_extmark(stream_buf_id, ns_id, 0, 0, {})
@@ -100,6 +96,26 @@ function M.before_request(kzn_state, curl_data, opts)
       api.nvim_buf_del_keymap(kzn_state.stream_buf_id, 'n', 'u')
     end,
   })
+end
+
+---@param kzn_state table
+---@param content string
+---@param opts table
+function M.on_content(kzn_state, content, opts)
+  kzn_state.response = kzn_state.response or ''
+  kzn_state.response = kzn_state.response .. content
+
+  if vim.api.nvim_buf_is_valid(kzn_state.stream_buf_id) then
+    kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+    if vim.api.nvim_win_is_valid(kzn_state.stream_win_id) then
+      -- Get last line and its length in the buffer
+      local lines = vim.api.nvim_buf_get_lines(kzn_state.stream_buf_id, 0, -1, false)
+      local last_line = lines[#lines]
+      local cursor_row = #lines
+      local cursor_col = #last_line
+      vim.api.nvim_win_set_cursor(kzn_state.stream_win_id, {cursor_row, cursor_col})
+    end
+  end
 end
 
 function M.after_request(kzn_state, curl_args, opts)

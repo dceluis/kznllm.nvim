@@ -168,22 +168,8 @@ function M.on_response(kzn_state, line, opts)
     end
 end
 
----@param kzn_state table
----@param content string
----@param opts table
-function M.on_content(kzn_state, content, opts)
-  kzn_state.response = kzn_state.response or ''
-  kzn_state.response = kzn_state.response .. content
-
-  kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
-  if kzn_state.stream_win_id then
-    -- Get last line and its length in the buffer
-    local lines = vim.api.nvim_buf_get_lines(kzn_state.stream_buf_id, 0, -1, false)
-    local last_line = lines[#lines]
-    local last_row = #lines
-    local last_col = #last_line
-    vim.api.nvim_win_set_cursor(kzn_state.stream_win_id, {last_row, last_col})
-  end
+function M.on_content(...)
+  return shared.on_content(...)
 end
 
 function M.before_request(...)
@@ -207,21 +193,22 @@ function M.after_request(kzn_state, ...)
 
     local source_map = ContentMap.new(kzn_state.current_buffer_context, true)
     local source_edits = edits[kzn_state.current_buffer_path]
-    source_map, _, _, _ = Coder.apply_edits(source_map, source_edits)
+    local new_source_map, passed, _, _ = Coder.apply_edits(source_map, source_edits)
 
-    if source_map then
+    if #passed > 0 then
       local buf_id = kzn_state.origin_buf_id
       local win_id = kzn_state.origin_win_id
-      local new_lines = kznllm.splitlines(source_map:as_content({apply=true}))
+      local new_lines = kznllm.splitlines(new_source_map:as_content({apply=true}))
       local last_line = new_lines[#new_lines]
-      local srow = math.min(#new_lines, kzn_state.srow)
-      local scol = math.min(#last_line, kzn_state.scol)
+      local cursor_row = math.min(#new_lines, kzn_state.srow + 1) -- nvim_win_set_cursor col argument is 1-indexed (!)
+      local cursor_col = math.min(#last_line, kzn_state.scol)
 
       if vim.api.nvim_buf_is_valid(buf_id) then
         vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, new_lines)
       end
+
       if vim.api.nvim_win_is_valid(win_id) then
-        vim.api.nvim_win_set_cursor(win_id, { srow, scol })
+        vim.api.nvim_win_set_cursor(win_id, { cursor_row, cursor_col })
       end
     end
   end

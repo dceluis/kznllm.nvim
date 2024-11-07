@@ -130,7 +130,8 @@ function M.get_user_input(on_submit, prompt)
 end
 
 ---Handles visual selection depending on the specified mode and some expected states of the user's current buffer.
---- Returns an appropriate position to stream output tokens and
+--- Returns an appropriate position to stream output tokens
+--- IMPORTANT: all the returned positions are 0-indexed.
 ---
 ---@param opts table optional values including debug mode
 ---@return string visual_selection returns the full selection
@@ -169,13 +170,7 @@ function M.get_visual_selection(opts)
   local replace_mode = (mode == 'v' or mode == 'V' or mode == '\22')
 
   if replace_mode then
-    api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', false, true, true), 'nx', false)
     visual_selection = table.concat(api.nvim_buf_get_text(0, srow, scol, erow, ecol, {}), '\n')
-
-    local selection_replace = opts and opts.selection_replace
-    if selection_replace then
-      api.nvim_buf_set_text(0, srow, scol, erow, ecol, {})
-    end
   end
 
   return visual_selection, srow, scol, erow, ecol
