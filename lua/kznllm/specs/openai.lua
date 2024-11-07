@@ -113,11 +113,8 @@ function M.on_response(kzn_state, line, opts)
   end
 end
 
----@param kzn_state table
----@param content string
----@param opts table
-function M.on_content(kzn_state, content, opts)
-  kznllm.write_content_at_extmark(content, kzn_state.stream_buf_id, kzn_state.ns_id, kzn_state.stream_extmark_id)
+function M.on_content(...)
+  return shared.on_content(...)
 end
 
 function M.before_request(...)
