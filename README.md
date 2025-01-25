@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
    cargo install minijinja-cli
 ```
 
-2. Add the plugin to your Neovim configuration using [Lazy.nvim](https://github.com/folke/lazy.nvim):
+2.1 Add the plugin to your Neovim configuration using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
    {
      'chottolabs/kznllm.nvim',
@@ -37,7 +37,7 @@ https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
    }
 ```
 
-3. Add the plugin to your Neovim configuration using [plug.vim](https://github.com/junegunn/vim-plug):
+2.2 Or, add the plugin to your Neovim configuration using [plug.vim](https://github.com/junegunn/vim-plug):
 ```vim
    Plug 'chottolabs/kznllm.nvim'
    Plug 'nvim-lua/plenary.nvim'
@@ -106,9 +106,6 @@ Full config with a preset switcher mechanism and optional debugging:
 },
 ```
 
-> [!TIP]
-> For local openai server (e.g. `vllm serve` w/ `--api-key <token>` and `--served-model-name meta-llama/Meta-Llama-3.1-8B-Instruct`) set `VLLM_API_KEY=<token>`
-
 ---
 
 ## Contributing
@@ -130,7 +127,7 @@ Originally based on [dingllm.nvim](https://github.com/yacineMTB/dingllm.nvim) - 
 
 ## Alternative Configurations
 
-Minimal configuration with no preset switcher.
+Minimal configuration with no preset switcher and a custom template directory
 
 ```lua
 local Path = require 'plenary.path'
@@ -138,11 +135,11 @@ local TEMPLATE_DIRECTORY = Path:new(vim.fn.expand('~') .. '/templates')
 
 local function llm_fill()
     presets.invoke_llm({
-        id = 'claude-3-5-haiku-or',
+        id = 'r1-llama-70B-ln-or',
         -- prompt = 'ask claude' -- optional. set an alternative input prompt
-        spec = 'openai',
+        spec = 'openai', -- required. 'openai' | 'anthropic' | 'lndiff/openai' | 'lndiff/anthropic'
         opts = {
-            model = 'anthropic/claude-3-5-haiku-20241022',
+            model = 'deepseek/deepseek-r1-distill-llama-70b',
             data_params = {
                 max_tokens = 8192,
                 temperature = 0.7,
@@ -159,3 +156,24 @@ end
 vim.keymap.set({ 'n', 'v' }, '<leader>f', llm_fill, { desc = 'Send current selection to LLM llm_fill' })
 ```
 
+Minimal VLLM configuration with no preset switcher
+
+```lua
+local function llm_fill()
+    presets.invoke_llm({
+        id = 'qwen-2.5-1.5b-vllm',
+        spec = 'vllm',
+        opts = {
+            model = 'Qwen/Qwen2.5-1.5B-Instruct',
+            data_params = {
+                max_tokens = 512,
+                temperature = 0.7,
+            },
+            api_key_name = 'VLLM_API_KEY',
+            base_url = 'http://localhost:8000/v1'
+        }
+    })
+end
+
+vim.keymap.set({ 'n', 'v' }, '<leader>f', llm_fill, { desc = 'Send current selection to VLLM' })
+```

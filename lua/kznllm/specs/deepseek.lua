@@ -5,7 +5,7 @@ local BASE_URL = 'https://api.deepseek.com/beta'
 local ENDPOINT = '/v1/chat/completions'
 
 local API_ERROR_MESSAGE = [[
-ERROR: api key name is set to %s and is missing from your environment variables.
+ERROR: api key is set to %s and is missing from your environment variables.
 
 Load somewhere safely from config `export %s=<api_key>`]]
 
@@ -52,6 +52,9 @@ function M.get_current_file(kzn_state, opts)
   return shared.get_current_file(kzn_state, opts)
 end
 
+---@param kzn_state table
+---@param opts table
+---@return table
 function M.make_curl_data(kzn_state, opts)
   kzn_state.prefill = opts.prefill
 
@@ -79,7 +82,6 @@ function M.make_curl_data(kzn_state, opts)
     table.insert(messages, {
       role = 'assistant',
       content = opts.prefill .. kzn_state.current_buffer_filetype .. '\n',
-      prefix = true,
     })
     data = vim.tbl_extend('keep', data, opts.stop_param)
   end

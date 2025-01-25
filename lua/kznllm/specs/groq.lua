@@ -5,7 +5,7 @@ local BASE_URL = 'https://api.groq.com/openai'
 local ENDPOINT = '/v1/chat/completions'
 
 local API_ERROR_MESSAGE = [[
-ERROR: api key name is set to %s and is missing from your environment variables.
+ERROR: api key is set to %s and is missing from your environment variables.
 
 Load somewhere safely from config `export %s=<api_key>`]]
 
@@ -30,7 +30,7 @@ function M.make_curl_args(kzn_state, curl_data, opts)
 
   local args = {
     '-s', --silent
-    '--fail-with-body', --silent
+    '--fail-with-body',
     '-N', --no buffer
     '-X',
     'POST',
@@ -52,6 +52,9 @@ function M.get_current_file(kzn_state, opts)
   return shared.get_current_file(kzn_state, opts)
 end
 
+---@param kzn_state table
+---@param opts table
+---@return table
 function M.make_curl_data(kzn_state, opts)
   kzn_state.prefill = opts.prefill
 

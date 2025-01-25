@@ -411,14 +411,14 @@ presets = {
     },
   },
   {
-    id = 'chat-model',
+    id = 'deepseek-chat',
     provider = 'deepseek',
     spec = 'deepseek',
     opts = {
       model = 'deepseek-chat',
       data_params = {
         max_tokens = 8192,
-        temperature = 0,
+        temperature = 0.5,
       },
       stop_param = { stop = { '```' } },
       prefill = '```',

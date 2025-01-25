@@ -15,9 +15,11 @@ local shared = require 'kznllm.specs.shared'
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.
 ---
----@param data table
+---@param kzn_state table
+---@param curl_data table
+---@param opts table
 ---@return string[]
-function M.make_curl_args(data, opts)
+function M.make_curl_args(kzn_state, curl_data, opts)
   local url = (opts and opts.base_url or BASE_URL) .. (opts and opts.endpoint or ENDPOINT)
   local api_key_name = opts and opts.api_key_name or API_KEY_NAME
   local api_key = os.getenv(api_key_name)
@@ -28,14 +30,14 @@ function M.make_curl_args(data, opts)
 
   local args = {
     '-s', --silent
-    '--fail-with-body', --silent
+    '--fail-with-body',
     '-N', --no buffer
     '-X',
     'POST',
     '-H',
     'Content-Type: application/json',
     '-d',
-    vim.json.encode(data),
+    vim.json.encode(curl_data),
     '-H',
     'Authorization: Bearer ' .. api_key,
     url,
@@ -50,7 +52,6 @@ function M.get_current_file(kzn_state, opts)
   return shared.get_current_file(kzn_state, opts)
 end
 
----Example implementation of a `make_curl_data` compatible with `kznllm.invoke_llm` for anthropic spec
 ---@param kzn_state table
 ---@param opts table
 ---@return table
@@ -60,17 +61,31 @@ function M.make_curl_data(kzn_state, opts)
   local system_template = shared.get_template_path('system_prompt.xml.jinja', opts)
   local user_template = shared.get_template_path('user_prompt.xml.jinja', opts)
 
-  local data = {
-    system = kznllm.make_prompt_from_template(system_template, kzn_state),
-    messages = {
-      {
-        role = 'user',
-        content = kznllm.make_prompt_from_template(user_template, kzn_state),
-      },
+  local messages = {
+    {
+      role = 'system',
+      content = kznllm.make_prompt_from_template(system_template, kzn_state),
     },
+    {
+      role = 'user',
+      content = kznllm.make_prompt_from_template(user_template, kzn_state),
+    },
+  }
+
+  local data = {
+    messages = messages,
     model = opts.model,
     stream = true,
   }
+
+  if kzn_state.visual_selection and opts.prefill and opts.stop_param then
+    table.insert(messages, {
+      role = 'assistant',
+      content = opts.prefill .. kzn_state.current_buffer_filetype .. '\n',
+    })
+    data = vim.tbl_extend('keep', data, opts.stop_param)
+  end
+
   data = vim.tbl_extend('keep', data, opts.data_params)
 
   return data
@@ -116,7 +131,7 @@ function M.after_request(...)
 end
 
 M.opts = {
-  template_scope = 'anthropic'
+  template_scope = 'nous_research'
 }
 
 return M

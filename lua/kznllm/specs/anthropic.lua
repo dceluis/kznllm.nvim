@@ -5,7 +5,7 @@ local BASE_URL = 'https://api.anthropic.com'
 local ENDPOINT = '/v1/messages'
 
 local API_ERROR_MESSAGE = [[
-ERROR: anthropic api key is set to %s and is missing from your environment variables.
+ERROR: api key is set to %s and is missing from your environment variables.
 
 Load somewhere safely from config `export %s=<api_key>`]]
 

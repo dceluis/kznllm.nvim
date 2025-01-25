@@ -15,7 +15,9 @@ local shared = require 'kznllm.specs.shared'
 --- Constructs arguments for constructing an HTTP request to the OpenAI API
 --- using cURL.
 ---
+---@param kzn_state table
 ---@param curl_data table
+---@param opts table
 ---@return string[]
 function M.make_curl_args(kzn_state, curl_data, opts)
   local url = (opts and opts.base_url or BASE_URL) .. (opts and opts.endpoint or ENDPOINT)
@@ -50,6 +52,9 @@ function M.get_current_file(kzn_state, opts)
   return shared.get_current_file(kzn_state, opts)
 end
 
+---@param kzn_state table
+---@param opts table
+---@return table
 function M.make_curl_data(kzn_state, opts)
   kzn_state.prefill = opts.prefill
 
