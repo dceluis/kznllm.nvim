@@ -247,7 +247,7 @@ presets = {
   {
     id = 'deepseek-v3-ln',
     provider = 'openrouter',
-    spec = 'lndiff/openrouter',
+    spec = 'lndiff/openai',
     opts = {
       model = 'deepseek/deepseek-chat',
       data_params = {
