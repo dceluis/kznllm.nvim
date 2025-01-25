@@ -2,6 +2,7 @@ local M = {}
 
 local API_KEY_NAME = 'OPENAI_API_KEY'
 local BASE_URL = 'https://api.openai.com'
+local ENDPOINT = '/v1/chat/completions'
 
 local API_ERROR_MESSAGE = [[
 ERROR: api key is set to %s and is missing from your environment variables.
@@ -19,7 +20,7 @@ local shared = require 'kznllm.specs.shared'
 ---@param opts table
 ---@return string[]
 function M.make_curl_args(kzn_state, curl_data, opts)
-  local url = (opts and opts.base_url or BASE_URL) .. (opts and opts.endpoint)
+  local url = (opts and opts.base_url or BASE_URL) .. (opts and opts.endpoint or ENDPOINT)
   local api_key_name = opts and opts.api_key_name or API_KEY_NAME
   local api_key = os.getenv(api_key_name)
 

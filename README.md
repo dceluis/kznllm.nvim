@@ -98,57 +98,32 @@ Originally based on [dingllm.nvim](https://github.com/yacineMTB/dingllm.nvim) - 
 
 ## Alternative Configurations
 
-minimal configuration with custom `make_data_fn` and no preset switcher. As you can see, the `make_data_fn` is simply building the `data` portion of the API call and will accept anything supported by the associated provider.
+Minimal configuration with no preset switcher.
 
 ```lua
-local presets = require 'kznllm'
-local presets = require 'kznllm.presets'
 local Path = require 'plenary.path'
-
-local TEMPLATE_DIRECTORY = Path:new(vim.fn.expand(self.dir) .. '/templates')
-
----Example implementation of a `make_data_fn` compatible with `kznllm.invoke_llm` for groq spec
----@param prompt_args any
----@param opts { model: string, temperature: number, template_directory: Path, debug: boolean }
----@return table
----
-local function make_data_for_openai_chat(prompt_args, opts)
-  return {
-    messages = {
-      {
-        role = 'system',
-        content = kznllm.make_prompt_from_template(opts.template_directory / 'nous_research/fill_mode_system_prompt.xml.jinja', prompt_args),
-      },
-      {
-        role = 'user',
-        content = kznllm.make_prompt_from_template(opts.template_directory / 'nous_research/fill_mode_user_prompt.xml.jinja', prompt_args),
-      },
-    },
-    model = opts.model,
-    temperature = opts.temperature,
-    stream = true,
-  }
-end
-
--- set initial preset on load
-local spec = require('kznllm.specs.groq')
+local TEMPLATE_DIRECTORY = Path:new(vim.fn.expand('~') .. '/templates')
 
 local function llm_fill()
-  presets.invoke_llm(
-    make_data_for_openai_chat,
-    spec.make_curl_args,
-    spec.make_job,
-    {
-      model = 'llama-3.1-70b-versatile',
-      max_tokens = 8192,
-      temperature = 0.7,
-      base_url = 'https://api.groq.com',
-      endpoint = '/openai/v1/chat/completions',
-      template_directory = TEMPLATE_DIRECTORY,
+    presets.invoke_llm({
+        id = 'claude-3-5-haiku-or',
+        -- prompt = 'ask claude' -- optional. set an alternative input prompt
+        spec = 'openai',
+        opts = {
+            model = 'anthropic/claude-3-5-haiku-20241022',
+            data_params = {
+                max_tokens = 8192,
+                temperature = 0.7,
+            },
+            api_key_name = 'OPENROUTER_API_KEY', -- optional
+            base_url = 'https://openrouter.ai/api', -- optional
+            -- endpoint = '/v1/chat/completions', -- optional
+            -- template_directory = TEMPLATE_DIRECTORY, -- optional. set an alternative template directory
+            -- template_scope = 'openrouter', -- optional. set an alternative template scope (template will be searched in `template_directory/template_scope/..` )
+        }
     })
-  )
 end
 
-vim.keymap.set({ 'n', 'v' }, '<leader>k', llm_fill, { desc = 'Send current selection to LLM llm_fill' })
+vim.keymap.set({ 'n', 'v' }, '<leader>f', llm_fill, { desc = 'Send current selection to LLM llm_fill' })
 ```
 

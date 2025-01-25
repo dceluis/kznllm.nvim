@@ -225,8 +225,8 @@ presets = {
         temperature = 0.3,
       },
       api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
+      base_url = 'https://openrouter.ai/api',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -240,8 +240,8 @@ presets = {
         temperature = 0.3,
       },
       api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
+      base_url = 'https://openrouter.ai/api',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -297,8 +297,8 @@ presets = {
         temperature = 0.7,
       },
       api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
+      base_url = 'https://openrouter.ai/api',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -312,8 +312,8 @@ presets = {
         temperature = 1.2,
       },
       api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
+      base_url = 'https://openrouter.ai/api',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -327,8 +327,8 @@ presets = {
         temperature = 1.2,
       },
       api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
+      base_url = 'https://openrouter.ai/api',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -344,8 +344,8 @@ presets = {
       -- doesn't support prefill
       -- stop_param = { stop = { '```' } },
       -- prefill = '```',
-      base_url = 'https://api.groq.com',
-      endpoint = '/openai/v1/chat/completions',
+      base_url = 'https://api.groq.com/openai',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
@@ -407,8 +407,8 @@ presets = {
       },
       stop_param = { stop = { '```' } },
       prefill = '```',
-      base_url = 'https://api.deepseek.com',
-      endpoint = '/beta/v1/chat/completions',
+      base_url = 'https://api.deepseek.com/beta',
+      endpoint = '/v1/chat/completions',
     },
   },
   {
