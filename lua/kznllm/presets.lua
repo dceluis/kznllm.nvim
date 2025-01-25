@@ -215,6 +215,21 @@ presets = {
     },
   },
   {
+    id = 'qwen-2.5-coder-32B-ln',
+    provider = 'huggingface',
+    spec = 'lndiff/openai',
+    opts = {
+      model = 'Qwen/Qwen2.5-Coder-32B-Instruct',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.3,
+      },
+      api_key_name = 'HUGGINGFACE_API_KEY',
+      base_url = 'https://api-inference.huggingface.co',
+      endpoint = '/v1/chat/completions',
+    },
+  },
+  {
     id = 'deepseek-v3',
     provider = 'openrouter',
     spec = 'openai',

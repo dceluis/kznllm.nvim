@@ -16,6 +16,40 @@ It's easy to hack on and implement customize behaviors without understanding muc
 
 https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
 
+## Installation
+
+> [!NOTE]
+> This plugin depends on [minijinja-cli](https://github.com/mitsuhiko/minijinja) - way easier to compose prompts.
+
+1. Install `minijinja-cli` (required for prompt templating):
+```bash
+   cargo install minijinja-cli
+```
+
+2. Add the plugin to your Neovim configuration using [Lazy.nvim](https://github.com/folke/lazy.nvim):
+```lua
+   {
+     'chottolabs/kznllm.nvim',
+     dependencies = { 'nvim-lua/plenary.nvim' },
+     config = function()
+       -- Add your configuration here (see Configuration section below)
+     end
+   }
+```
+
+3. Add the plugin to your Neovim configuration using [plug.vim](https://github.com/junegunn/vim-plug):
+```vim
+   Plug 'chottolabs/kznllm.nvim'
+   Plug 'nvim-lua/plenary.nvim'
+```
+
+   Then, in your `init.vim` or `init.lua`, add the following configuration:
+```lua
+   require('kznllm').setup({
+     -- Add your configuration here (see Configuration section below)
+   })
+```
+
 ## Configuration
 
 Make your API keys available via environment variables
@@ -28,10 +62,7 @@ export DEEPSEEK_API_KEY=vllm_...
 export VLLM_API_KEY=vllm_...
 ```
 
-> [!NOTE]
-> This plugin depends on [minijinja-cli](https://github.com/mitsuhiko/minijinja) (`cargo install minijinja-cli`, but double-check) - way easier to compose prompts.
-
-full config w/ supported presets and a switch mechanism and provider-specific debug functions
+Full config with a preset switcher mechanism and optional debugging:
 
 ```lua
 {
@@ -75,7 +106,8 @@ full config w/ supported presets and a switch mechanism and provider-specific de
 },
 ```
 
-for local openai server (e.g. `vllm serve` w/ `--api-key <token>` and `--served-model-name meta-llama/Meta-Llama-3.1-8B-Instruct`) set `VLLM_API_KEY=<token>`
+> [!TIP]
+> For local openai server (e.g. `vllm serve` w/ `--api-key <token>` and `--served-model-name meta-llama/Meta-Llama-3.1-8B-Instruct`) set `VLLM_API_KEY=<token>`
 
 ---
 
