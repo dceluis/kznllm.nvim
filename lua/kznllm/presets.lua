@@ -200,7 +200,7 @@ end
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
 presets = {
   {
-    id = 'r1-distill-qwen-32B-ln',
+    id = 'r1-qwen-32B-ln',
     provider = 'huggingface',
     spec = 'lndiff/openai',
     opts = {
