@@ -140,8 +140,11 @@ function M.switch_presets(all_presets)
 
   local selected_preset = M.load(all_presets)
 
+  local item_idx = 0
   vim.ui.select(all_presets, {
     format_item = function(item)
+      item_idx = item_idx + 1
+
       local options = {}
       for k, v in pairs(item.opts.data_params or {}) do
         if type(v) == 'number' then
@@ -158,14 +161,21 @@ function M.switch_presets(all_presets)
         end
       end
       table.sort(options)
-      return ('%-20s %10s │ %s'):format(item.id .. (item == selected_preset and ' *' or '  '), item.provider, table.concat(options, ' '))
+
+      local digits = math.floor(math.log10(item_idx)) + 1
+      local padding_reduction = digits - 1
+
+      -- Dynamic padding based on number of items
+      local id_pad = 30 - padding_reduction
+
+      return ("%-"..id_pad.."s %-12s │ %s"):format( item.id .. (item == selected_preset and " *" or "  "), item.provider, table.concat(options, "  "))
     end,
   }, function(choice, idx)
     if not choice then
       return
     end
     vim.g.PRESET_IDX = idx
-    print(('%-15s provider: %-10s'):format(choice.id, choice.provider))
+    print(("%-15s provider: %-10s"):format(choice.id, choice.provider))
   end)
 end
 
@@ -173,6 +183,11 @@ function M.load(all_presets)
   all_presets = all_presets or presets
 
   local idx = vim.g.PRESET_IDX or 1
+
+  if idx < 1 or idx > #all_presets then
+    idx = 1
+  end
+
   return all_presets[idx]
 end
 
