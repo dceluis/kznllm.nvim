@@ -185,14 +185,29 @@ end
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
 presets = {
   {
-    id = 'deepseek-v2.5',
+    id = 'deepseek-v3',
     provider = 'openrouter',
     spec = 'openai',
     opts = {
       model = 'deepseek/deepseek-chat',
       data_params = {
         -- max_tokens = 8192,
-        temperature = 0.7,
+        temperature = 0.3,
+      },
+      api_key_name = 'OPENROUTER_API_KEY',
+      base_url = 'https://openrouter.ai',
+      endpoint = '/api/v1/chat/completions',
+    },
+  },
+  {
+    id = 'deepseek-v3-ln',
+    provider = 'openrouter',
+    spec = 'lndiff/openrouter',
+    opts = {
+      model = 'deepseek/deepseek-chat',
+      data_params = {
+        -- max_tokens = 8192,
+        temperature = 0.3,
       },
       api_key_name = 'OPENROUTER_API_KEY',
       base_url = 'https://openrouter.ai',
