@@ -92,7 +92,7 @@ end
 ---@return string|nil
 function M.on_response(kzn_state, line, opts)
   local data = line:match '^data: (.+)$'
-  if data and data ~= '[DONE]' then
+  if data and data:match '"delta":' then
     local json = vim.json.decode(data)
     if json.choices and json.choices[1] and json.choices[1].delta and json.choices[1].delta.content then
       return json.choices[1].delta.content
