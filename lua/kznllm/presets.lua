@@ -185,6 +185,21 @@ end
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
 presets = {
   {
+    id = 'r1-distill-qwen-32B-ln',
+    provider = 'huggingface',
+    spec = 'lndiff/openai',
+    opts = {
+      model = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.3,
+      },
+      api_key_name = 'HUGGINGFACE_API_KEY',
+      base_url = 'https://api-inference.huggingface.co',
+      endpoint = '/v1/chat/completions',
+    },
+  },
+  {
     id = 'deepseek-v3',
     provider = 'openrouter',
     spec = 'openai',
@@ -222,20 +237,6 @@ presets = {
       model = 'claude-3-5-sonnet-20241022',
       data_params = {
         max_tokens = 8192,
-        temperature = 0.7,
-      },
-      base_url = 'https://api.anthropic.com',
-      endpoint = '/v1/messages',
-    },
-  },
-  {
-    id = 'claude-3-haiku',
-    provider = 'anthropic',
-    spec = 'anthropic',
-    opts = {
-      model = 'claude-3-haiku-20240307',
-      data_params = {
-        max_tokens = 4096,
         temperature = 0.7,
       },
       base_url = 'https://api.anthropic.com',
@@ -306,21 +307,6 @@ presets = {
     spec = 'openai',
     opts = {
       model = 'openai/o1-mini',
-      data_params = {
-        -- max_tokens = 8192,
-        temperature = 1.2,
-      },
-      api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai',
-      endpoint = '/api/v1/chat/completions',
-    },
-  },
-  {
-    id = 'o1-preview',
-    provider = 'openrouter',
-    spec = 'openai',
-    opts = {
-      model = 'openai/o1-preview',
       data_params = {
         -- max_tokens = 8192,
         temperature = 1.2,
