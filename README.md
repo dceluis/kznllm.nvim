@@ -123,6 +123,49 @@ Originally based on [dingllm.nvim](https://github.com/yacineMTB/dingllm.nvim) - 
 
 ## Alternative Configurations
 
+Preset switcher with added presets
+
+```lua
+local extra_presets = {
+    {
+        id = 'r1-qwen-32B',
+        provider = 'huggingface',
+        spec = 'openai',
+        opts = {
+            model = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
+            data_params = {
+                max_tokens = 8192,
+                temperature = 0.3,
+            },
+            api_key_name = 'HUGGINGFACE_API_KEY',
+            base_url = 'https://api-inference.huggingface.co',
+            endpoint = '/v1/chat/completions',
+        },
+    },
+}
+
+local presets = require 'kznllm.presets'
+local kznllm = require 'kznllm'
+
+presets.register_presets(extra_presets)
+
+vim.keymap.set({ 'n', 'v' }, '<leader>m', presets.switch_presets, { desc = 'switch between presets' })
+
+local function llm_fill()
+    local selected_preset = presets.load(all_presets)
+    presets.invoke_llm(selected_preset)
+end
+
+vim.keymap.set({ 'n', 'v' }, '\\', llm_fill, { desc = 'Send current selection to LLM llm_fill' })
+
+local function debug()
+    local selected_preset = presets.load(all_presets)
+    presets.invoke_llm(selected_preset, { debug = true })
+end
+
+vim.keymap.set({ 'n', 'v' }, '<leader>\\', debug, { desc = 'Send current selection to LLM debug' })
+```
+
 Minimal configuration with no preset switcher and a custom template directory
 
 ```lua
