@@ -1,5 +1,9 @@
 # kznllm.nvim
 
+A Neovim plugin for integrating Large Language Models (LLMs) into your coding workflow.
+
+https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
+
 The only main command is `leader + k`, it does nothing more than fill in some LLM completion into the text buffer. It has two main behaviors:
 1. If you made a visual selection, it will attempt to replace your selection with a valid code fragment. 
 2. If you make no visual selection, it can yap freely (or do something else specified by a good template).
@@ -13,8 +17,6 @@ It's easy to hack on and implement customize behaviors without understanding muc
 - add custom prompt templates
 - pipe any context into template engine
 - extend with custom features/modes
-
-https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
 
 ## Installation
 
@@ -105,12 +107,6 @@ Full config with a preset switcher mechanism and optional debugging:
   end
 },
 ```
-
----
-
-## Contributing
-
-See [CONTRIBUTING](CONTRIBUTING.md) to understand the typical development workflow for Neovim plugins using `Lazy` and some straightforward ways you can modify the plugin to suit your needs
 
 ---
 
