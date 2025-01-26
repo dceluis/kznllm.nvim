@@ -131,7 +131,7 @@ function M.after_request(...)
 end
 
 M.opts = {
-  template_scope = 'nous_research'
+  template_scope = 'anthropic'
 }
 
 return M
