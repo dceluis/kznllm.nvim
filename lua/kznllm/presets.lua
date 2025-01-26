@@ -141,42 +141,51 @@ function M.switch_presets(all_presets)
   local selected_preset = M.load(all_presets)
 
   local item_idx = 0
-  vim.ui.select(all_presets, {
-    format_item = function(item)
-      item_idx = item_idx + 1
+  local ok, err = pcall(function()
+    vim.ui.select(all_presets, {
+      format_item = function(item)
+        item_idx = item_idx + 1
 
-      local options = {}
-      for k, v in pairs(item.opts.data_params or {}) do
-        if type(v) == 'number' then
-          local k_parts = {}
-          local k_split = vim.split(k, '_')
-          for i, term in ipairs(k_split) do
-            if i > 1 then
-              table.insert(k_parts, term:sub(0, 3))
-            else
-              table.insert(k_parts, term:sub(0, 4))
+        local options = {}
+        for k, v in pairs(item.opts.data_params or {}) do
+          if type(v) == 'number' then
+            local k_parts = {}
+            local k_split = vim.split(k, '_')
+            for i, term in ipairs(k_split) do
+              if i > 1 then
+                table.insert(k_parts, term:sub(0, 3))
+              else
+                table.insert(k_parts, term:sub(0, 4))
+              end
             end
+            table.insert(options, ('%-5s %-5s'):format(table.concat(k_parts, '_'), v))
           end
-          table.insert(options, ('%-5s %-5s'):format(table.concat(k_parts, '_'), v))
         end
+        table.sort(options)
+
+        local digits = math.floor(math.log10(item_idx)) + 1
+        local padding_reduction = digits - 1
+
+        -- Dynamic padding based on number of items
+        local id_pad = 30 - padding_reduction
+
+        return ("%-"..id_pad.."s %-12s │ %s"):format( item.id .. (item == selected_preset and " *" or "  "), item.provider, table.concat(options, "  "))
+      end,
+    }, function(choice, idx)
+      if not choice then
+        return
       end
-      table.sort(options)
-
-      local digits = math.floor(math.log10(item_idx)) + 1
-      local padding_reduction = digits - 1
-
-      -- Dynamic padding based on number of items
-      local id_pad = 30 - padding_reduction
-
-      return ("%-"..id_pad.."s %-12s │ %s"):format( item.id .. (item == selected_preset and " *" or "  "), item.provider, table.concat(options, "  "))
-    end,
-  }, function(choice, idx)
-    if not choice then
-      return
-    end
-    vim.g.PRESET_IDX = idx
-    print(("%-15s provider: %-10s"):format(choice.id, choice.provider))
+      vim.g.PRESET_IDX = idx
+    end)
   end)
+
+  if not ok then
+    if err:match("interrupt") then
+      vim.api.nvim_input("<CR>")       -- Simulate Enter press
+    else
+      error(err)
+    end
+  end
 end
 
 function M.load(all_presets)
@@ -230,7 +239,7 @@ presets = {
     },
   },
   {
-    id = 'phi4',
+    id = 'phi4-ln',
     provider = 'azure',
     spec = 'lndiff/openai',
     opts = {
