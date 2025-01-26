@@ -39,8 +39,8 @@ https://github.com/user-attachments/assets/406fc75f-c204-42ec-80a0-0f9e186c34c7
 
 2.2 Or, add the plugin to your Neovim configuration using [plug.vim](https://github.com/junegunn/vim-plug):
 ```vim
-   Plug 'chottolabs/kznllm.nvim'
    Plug 'nvim-lua/plenary.nvim'
+   Plug 'chottolabs/kznllm.nvim'
 ```
 
    Then, in your `init.vim` or `init.lua`, add the following configuration:
