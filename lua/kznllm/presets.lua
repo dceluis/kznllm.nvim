@@ -209,6 +209,18 @@ end
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
 presets = {
   {
+    id = 'gemini-2.0-flash',
+    provider = 'gemini',
+    spec = 'gemini',
+    opts = {
+      model = 'gemini-2.0-flash',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.3,
+      },
+    },
+  },
+  {
     id = 'r1-qwen-32B-ln',
     provider = 'huggingface',
     spec = 'lndiff/openai',
