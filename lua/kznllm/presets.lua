@@ -209,15 +209,46 @@ end
 -- for vllm, add openai w/ kwargs (i.e. url + api_key)
 presets = {
   {
-    id = 'gemini-2.0-flash',
+    id = 'gemini-2.5-flash',
     provider = 'gemini',
     spec = 'gemini',
     opts = {
-      model = 'gemini-2.0-flash',
+      model = 'gemini-2.5-flash-preview-05-20',
       data_params = {
         max_tokens = 8192,
         temperature = 0.3,
       },
+    },
+  },
+  {
+    id = 'gemini-2.5-flash-ln',
+    provider = 'gemini',
+    spec = 'lndiff/openai',
+    opts = {
+      model = 'gemini-2.5-flash-preview-05-20',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.4,
+      },
+      api_key_name = 'GEMINI_API_KEY',
+      base_url = 'https://generativelanguage.googleapis.com',
+      endpoint = '/v1beta/chat/completions',
+    },
+  },
+  {
+    id = 'gemini-2.5-flash-think-ln',
+    provider = 'gemini',
+    spec = 'lndiff/openai',
+    opts = {
+      model = 'gemini-2.5-flash-preview-05-20',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.4,
+        reasoning_effort = "low",
+      },
+      api_key_name = 'GEMINI_API_KEY',
+      base_url = 'https://generativelanguage.googleapis.com',
+      endpoint = '/v1beta/chat/completions',
     },
   },
   {
@@ -270,9 +301,9 @@ presets = {
     provider = 'openrouter',
     spec = 'lndiff/openai',
     opts = {
-      model = 'deepseek/deepseek-chat',
+      model = 'deepseek/deepseek-chat-v3-0324',
       data_params = {
-        -- max_tokens = 8192,
+        max_tokens = 8192,
         temperature = 0.3,
       },
       api_key_name = 'OPENROUTER_API_KEY',
@@ -323,14 +354,14 @@ presets = {
     },
   },
   {
-    id = 'gpt-4o-mini',
+    id = 'gpt-4-1-mini-ln',
     provider = 'openrouter',
-    spec = 'openai',
+    spec = 'lndiff/openai',
     opts = {
-      model = 'openai/gpt-4o-mini',
+      model = 'openai/gpt-4.1-mini',
       data_params = {
         -- max_tokens = 8192,
-        temperature = 0.7,
+        temperature = 0.5,
       },
       api_key_name = 'OPENROUTER_API_KEY',
       base_url = 'https://openrouter.ai/api',
@@ -338,14 +369,14 @@ presets = {
     },
   },
   {
-    id = 'gpt-4o',
+    id = 'gpt-4-1-nano-ln',
     provider = 'openrouter',
-    spec = 'openai',
+    spec = 'lndiff/openai',
     opts = {
-      model = 'openai/gpt-4o',
+      model = 'openai/gpt-4.1-nano',
       data_params = {
         -- max_tokens = 8192,
-        temperature = 1.2,
+        temperature = 0.5,
       },
       api_key_name = 'OPENROUTER_API_KEY',
       base_url = 'https://openrouter.ai/api',
@@ -353,17 +384,32 @@ presets = {
     },
   },
   {
-    id = 'o1-mini',
-    provider = 'openrouter',
-    spec = 'openai',
+    id = 'deepseek-chat-ln',
+    provider = 'deepseek',
+    spec = 'lndiff/openai',
     opts = {
-      model = 'openai/o1-mini',
+      model = 'deepseek-chat',
       data_params = {
-        -- max_tokens = 8192,
-        temperature = 1.2,
+        max_tokens = 8192,
+        temperature = 0.3,
       },
-      api_key_name = 'OPENROUTER_API_KEY',
-      base_url = 'https://openrouter.ai/api',
+      api_key_name = 'DEEPSEEK_API_KEY',
+      base_url = 'https://api.deepseek.com/beta',
+      endpoint = '/v1/chat/completions',
+    },
+  },
+  {
+    id = 'deepseek-reasoner-ln',
+    provider = 'deepseek',
+    spec = 'lndiff/openai',
+    opts = {
+      model = 'deepseek-reasoner',
+      data_params = {
+        max_tokens = 8192,
+        temperature = 0.3,
+      },
+      api_key_name = 'DEEPSEEK_API_KEY',
+      base_url = 'https://api.deepseek.com/beta',
       endpoint = '/v1/chat/completions',
     },
   },
@@ -428,22 +474,6 @@ presets = {
         temperature = 0.7,
       },
       base_url = 'https://api.openai.com',
-      endpoint = '/v1/chat/completions',
-    },
-  },
-  {
-    id = 'deepseek-chat',
-    provider = 'deepseek',
-    spec = 'deepseek',
-    opts = {
-      model = 'deepseek-chat',
-      data_params = {
-        max_tokens = 8192,
-        temperature = 0.5,
-      },
-      stop_param = { stop = { '```' } },
-      prefill = '```',
-      base_url = 'https://api.deepseek.com/beta',
       endpoint = '/v1/chat/completions',
     },
   },
